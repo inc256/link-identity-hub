@@ -14,13 +14,337 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      analytics_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          label: string | null
+          profile_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          label?: string | null
+          profile_id: string
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          label?: string | null
+          profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analytics_events_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      custom_links: {
+        Row: {
+          description: string | null
+          icon: string | null
+          id: string
+          position: number
+          profile_id: string
+          title: string
+          url: string
+          visible: boolean
+        }
+        Insert: {
+          description?: string | null
+          icon?: string | null
+          id?: string
+          position?: number
+          profile_id: string
+          title: string
+          url: string
+          visible?: boolean
+        }
+        Update: {
+          description?: string | null
+          icon?: string | null
+          id?: string
+          position?: number
+          profile_id?: string
+          title?: string
+          url?: string
+          visible?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_links_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      page_blocks: {
+        Row: {
+          content_json: Json
+          created_at: string
+          id: string
+          position: number
+          profile_id: string
+          type: string
+          updated_at: string
+          visible: boolean
+        }
+        Insert: {
+          content_json?: Json
+          created_at?: string
+          id?: string
+          position?: number
+          profile_id: string
+          type: string
+          updated_at?: string
+          visible?: boolean
+        }
+        Update: {
+          content_json?: Json
+          created_at?: string
+          id?: string
+          position?: number
+          profile_id?: string
+          type?: string
+          updated_at?: string
+          visible?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "page_blocks_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      products: {
+        Row: {
+          description: string | null
+          id: string
+          image: string | null
+          name: string
+          position: number
+          price: string | null
+          profile_id: string
+          url: string | null
+        }
+        Insert: {
+          description?: string | null
+          id?: string
+          image?: string | null
+          name: string
+          position?: number
+          price?: string | null
+          profile_id: string
+          url?: string | null
+        }
+        Update: {
+          description?: string | null
+          id?: string
+          image?: string | null
+          name?: string
+          position?: number
+          price?: string | null
+          profile_id?: string
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "products_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          address: string | null
+          analytics_enabled: boolean
+          bio: string | null
+          button_style: string
+          cover_image: string | null
+          created_at: string
+          description: string | null
+          display_name: string
+          email: string | null
+          id: string
+          image_shape: string
+          layout: string
+          maps_url: string | null
+          onboarded: boolean
+          opening_hours: Json
+          phone: string | null
+          profile_image: string | null
+          show_cover: boolean
+          status: string
+          template: string | null
+          theme: string
+          title: string | null
+          updated_at: string
+          user_id: string
+          username: string
+          website: string | null
+          whatsapp: string | null
+        }
+        Insert: {
+          address?: string | null
+          analytics_enabled?: boolean
+          bio?: string | null
+          button_style?: string
+          cover_image?: string | null
+          created_at?: string
+          description?: string | null
+          display_name?: string
+          email?: string | null
+          id?: string
+          image_shape?: string
+          layout?: string
+          maps_url?: string | null
+          onboarded?: boolean
+          opening_hours?: Json
+          phone?: string | null
+          profile_image?: string | null
+          show_cover?: boolean
+          status?: string
+          template?: string | null
+          theme?: string
+          title?: string | null
+          updated_at?: string
+          user_id: string
+          username: string
+          website?: string | null
+          whatsapp?: string | null
+        }
+        Update: {
+          address?: string | null
+          analytics_enabled?: boolean
+          bio?: string | null
+          button_style?: string
+          cover_image?: string | null
+          created_at?: string
+          description?: string | null
+          display_name?: string
+          email?: string | null
+          id?: string
+          image_shape?: string
+          layout?: string
+          maps_url?: string | null
+          onboarded?: boolean
+          opening_hours?: Json
+          phone?: string | null
+          profile_image?: string | null
+          show_cover?: boolean
+          status?: string
+          template?: string | null
+          theme?: string
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+          username?: string
+          website?: string | null
+          whatsapp?: string | null
+        }
+        Relationships: []
+      }
+      services: {
+        Row: {
+          description: string | null
+          id: string
+          image: string | null
+          name: string
+          position: number
+          price: string | null
+          profile_id: string
+          url: string | null
+        }
+        Insert: {
+          description?: string | null
+          id?: string
+          image?: string | null
+          name: string
+          position?: number
+          price?: string | null
+          profile_id: string
+          url?: string | null
+        }
+        Update: {
+          description?: string | null
+          id?: string
+          image?: string | null
+          name?: string
+          position?: number
+          price?: string | null
+          profile_id?: string
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "services_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      social_links: {
+        Row: {
+          id: string
+          label: string | null
+          platform: string
+          position: number
+          profile_id: string
+          url: string
+          visible: boolean
+        }
+        Insert: {
+          id?: string
+          label?: string | null
+          platform: string
+          position?: number
+          profile_id: string
+          url: string
+          visible?: boolean
+        }
+        Update: {
+          id?: string
+          label?: string | null
+          platform?: string
+          position?: number
+          profile_id?: string
+          url?: string
+          visible?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_links_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_profile_public: { Args: { _profile_id: string }; Returns: boolean }
+      owns_profile: { Args: { _profile_id: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
