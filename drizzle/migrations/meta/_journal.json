@@ -1,0 +1,20 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1790065058649,
+      "tag": "0000_create_cytic_link_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790065125557,
+      "tag": "0001_profile_media_storage_policies",
+      "breakpoints": true
+    }
+  ]
+}
