@@ -1,3 +1,5 @@
+import type { JsonObject } from "./json";
+
 export interface OpeningHour {
   day: string;
   closed: boolean;
@@ -92,7 +94,7 @@ export interface PageBlockRow {
   id: string;
   profile_id: string;
   type: string;
-  content_json: Record<string, unknown>;
+  content_json: JsonObject;
   visible: boolean;
   position: number;
 }

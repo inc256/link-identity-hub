@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react";
+import type { JsonObject } from "./json";
 import {
   AlignLeft,
   CalendarClock,
@@ -42,7 +43,7 @@ export type BlockType =
   | "contact_form"
   | "file";
 
-export type BlockContent = Record<string, unknown>;
+export type BlockContent = JsonObject;
 
 export interface PageBlock {
   id: string;
