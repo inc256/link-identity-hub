@@ -1,4 +1,4 @@
-import type { JsonObject, JsonValue } from "./json";
+import type { JsonObject } from "./json";
 
 export interface OpeningHour {
   day: string;
