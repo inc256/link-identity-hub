@@ -216,7 +216,12 @@ export async function reorderRows(table: Table, ids: string[]) {
 
 /** Uploads land in the user's own folder; only paths are stored so storage stays swappable. */
 export async function uploadMedia(userId: string, file: File): Promise<string> {
-  const extension = file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+  const extension =
+    file.name
+      .split(".")
+      .pop()
+      ?.toLowerCase()
+      .replace(/[^a-z0-9]/g, "") || "jpg";
   const path = `${userId}/${crypto.randomUUID()}.${extension}`;
   const { error } = await supabase.storage
     .from("profile-media")

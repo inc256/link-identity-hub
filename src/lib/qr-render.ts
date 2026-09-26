@@ -85,9 +85,7 @@ export function buildQrSvg(text: string, options: QrOptions): QrSvgResult {
       const x = (col + quiet) * unit + framePad;
       const y = (row + quiet) * unit + framePad;
       if (options.style === "dots") {
-        parts.push(
-          `<circle cx="${x + unit / 2}" cy="${y + unit / 2}" r="${unit * 0.46}" />`,
-        );
+        parts.push(`<circle cx="${x + unit / 2}" cy="${y + unit / 2}" r="${unit * 0.46}" />`);
       } else if (options.style === "rounded") {
         parts.push(
           `<rect x="${x + unit * 0.06}" y="${y + unit * 0.06}" width="${unit * 0.88}" height="${unit * 0.88}" rx="${unit * 0.32}" />`,

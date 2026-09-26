@@ -21,14 +21,29 @@ export interface SocialPlatform {
 }
 
 export const SOCIAL_PLATFORMS: SocialPlatform[] = [
-  { value: "instagram", label: "Instagram", icon: Instagram, hint: "https://instagram.com/yourname" },
+  {
+    value: "instagram",
+    label: "Instagram",
+    icon: Instagram,
+    hint: "https://instagram.com/yourname",
+  },
   { value: "facebook", label: "Facebook", icon: Facebook, hint: "https://facebook.com/yourpage" },
   { value: "tiktok", label: "TikTok", icon: Music2, hint: "https://tiktok.com/@yourname" },
   { value: "youtube", label: "YouTube", icon: Youtube, hint: "https://youtube.com/@yourchannel" },
   { value: "x", label: "X", icon: AtSign, hint: "https://x.com/yourname" },
-  { value: "linkedin", label: "LinkedIn", icon: Linkedin, hint: "https://linkedin.com/in/yourname" },
+  {
+    value: "linkedin",
+    label: "LinkedIn",
+    icon: Linkedin,
+    hint: "https://linkedin.com/in/yourname",
+  },
   { value: "telegram", label: "Telegram", icon: Send, hint: "https://t.me/yourname" },
-  { value: "snapchat", label: "Snapchat", icon: MessageCircle, hint: "https://snapchat.com/add/yourname" },
+  {
+    value: "snapchat",
+    label: "Snapchat",
+    icon: MessageCircle,
+    hint: "https://snapchat.com/add/yourname",
+  },
   { value: "pinterest", label: "Pinterest", icon: Pin, hint: "https://pinterest.com/yourname" },
   { value: "github", label: "GitHub", icon: Github, hint: "https://github.com/yourname" },
   { value: "threads", label: "Threads", icon: AtSign, hint: "https://threads.net/@yourname" },

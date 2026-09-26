@@ -16,12 +16,7 @@ import { mediaUrl } from "@/lib/profile-types";
 import { mailHref, safeUrl, telHref, whatsappHref, youtubeEmbed } from "@/lib/validation";
 
 export type EventType =
-  | "page_view"
-  | "qr_scan"
-  | "link_click"
-  | "contact_click"
-  | "website_click"
-  | "social_click";
+  "page_view" | "qr_scan" | "link_click" | "contact_click" | "website_click" | "social_click";
 
 interface ViewProps {
   bundle: ProfileBundle;
@@ -147,7 +142,11 @@ export function ProfileView({ bundle, onEvent, preview = false }: ViewProps) {
       case "heading": {
         const size = str(content, "size", "md");
         const classes =
-          size === "lg" ? "text-xl font-semibold" : size === "sm" ? "text-sm font-semibold" : "text-lg font-semibold";
+          size === "lg"
+            ? "text-xl font-semibold"
+            : size === "sm"
+              ? "text-sm font-semibold"
+              : "text-lg font-semibold";
         return (
           <h2 key={key} className={`${classes} ${align}`}>
             {str(content, "text")}
@@ -159,7 +158,7 @@ export function ProfileView({ bundle, onEvent, preview = false }: ViewProps) {
       case "business_info": {
         const body =
           type === "business_info" && bool(content, "useDescription", true)
-            ? profile.description ?? ""
+            ? (profile.description ?? "")
             : str(content, "text");
         if (!body && !str(content, "heading")) return null;
         return (
@@ -181,7 +180,12 @@ export function ProfileView({ bundle, onEvent, preview = false }: ViewProps) {
         if (!url) return null;
         return (
           <figure key={key}>
-            <img src={url} alt={str(content, "alt")} className="w-full rounded-lg object-cover" loading="lazy" />
+            <img
+              src={url}
+              alt={str(content, "alt")}
+              className="w-full rounded-lg object-cover"
+              loading="lazy"
+            />
             {str(content, "caption") ? (
               <figcaption className="mt-2 text-xs" style={{ color: "var(--page-muted)" }}>
                 {str(content, "caption")}
@@ -300,7 +304,11 @@ export function ProfileView({ bundle, onEvent, preview = false }: ViewProps) {
                       {...linkProps(href)}
                       onClick={() => track("social_click", social.platform)}
                       className={`${btn} justify-start`}
-                      style={{ ...solidButtonStyle, background: "var(--page-surface)", color: "var(--page-fg)" }}
+                      style={{
+                        ...solidButtonStyle,
+                        background: "var(--page-surface)",
+                        color: "var(--page-fg)",
+                      }}
                     >
                       <Icon className="h-4 w-4" aria-hidden="true" />
                       {social.label || socialLabel(social.platform)}
@@ -309,7 +317,9 @@ export function ProfileView({ bundle, onEvent, preview = false }: ViewProps) {
                 })}
               </div>
             ) : (
-              <div className={`flex flex-wrap gap-2 ${profile.layout === "left" ? "" : "justify-center"}`}>
+              <div
+                className={`flex flex-wrap gap-2 ${profile.layout === "left" ? "" : "justify-center"}`}
+              >
                 {visible.map((social) => {
                   const href = safeUrl(social.url);
                   if (!href) return null;
@@ -321,7 +331,10 @@ export function ProfileView({ bundle, onEvent, preview = false }: ViewProps) {
                       onClick={() => track("social_click", social.platform)}
                       aria-label={social.label || socialLabel(social.platform)}
                       className="inline-flex h-11 w-11 items-center justify-center rounded-full border transition-opacity hover:opacity-80"
-                      style={{ borderColor: "var(--page-border)", background: "var(--page-surface)" }}
+                      style={{
+                        borderColor: "var(--page-border)",
+                        background: "var(--page-surface)",
+                      }}
                     >
                       <Icon className="h-5 w-5" aria-hidden="true" />
                     </a>
@@ -349,7 +362,11 @@ export function ProfileView({ bundle, onEvent, preview = false }: ViewProps) {
                     {...linkProps(href)}
                     onClick={() => track("link_click", link.title)}
                     className={`${btn} flex-col items-start gap-0.5 sm:flex-row sm:items-center sm:justify-between`}
-                    style={{ ...solidButtonStyle, background: "var(--page-surface)", color: "var(--page-fg)" }}
+                    style={{
+                      ...solidButtonStyle,
+                      background: "var(--page-surface)",
+                      color: "var(--page-fg)",
+                    }}
                   >
                     <span className="font-medium">{link.title}</span>
                     {link.description ? (
@@ -390,10 +407,15 @@ export function ProfileView({ bundle, onEvent, preview = false }: ViewProps) {
                     ) : null}
                     <div className="flex items-baseline justify-between gap-3">
                       <h3 className="text-sm font-semibold">{item.name}</h3>
-                      {item.price ? <span className="text-sm font-medium">{item.price}</span> : null}
+                      {item.price ? (
+                        <span className="text-sm font-medium">{item.price}</span>
+                      ) : null}
                     </div>
                     {item.description ? (
-                      <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--page-muted)" }}>
+                      <p
+                        className="mt-1 text-xs leading-relaxed"
+                        style={{ color: "var(--page-muted)" }}
+                      >
                         {item.description}
                       </p>
                     ) : null}
@@ -529,12 +551,12 @@ export function ProfileView({ bundle, onEvent, preview = false }: ViewProps) {
     >
       <div className={`mx-auto w-full ${wrapperWidth} px-4 py-10 sm:py-14`}>
         <div
-          className={
+          className={card ? "rounded-xl border p-5 sm:p-7" : ""}
+          style={
             card
-              ? "rounded-xl border p-5 sm:p-7"
-              : ""
+              ? { borderColor: "var(--page-border)", background: "var(--page-surface)" }
+              : undefined
           }
-          style={card ? { borderColor: "var(--page-border)", background: "var(--page-surface)" } : undefined}
         >
           <div className="space-y-7">
             {visibleBlocks.map((block) => renderBlock(block.type, block.content_json, block.id))}
@@ -600,7 +622,11 @@ function ContactFormBlock({
           maxLength={80}
           required
           className="w-full rounded-md border px-3 py-2.5 text-sm outline-none"
-          style={{ borderColor: "var(--page-border)", background: "var(--page-surface)", color: "var(--page-fg)" }}
+          style={{
+            borderColor: "var(--page-border)",
+            background: "var(--page-surface)",
+            color: "var(--page-fg)",
+          }}
         />
         <textarea
           value={message}
@@ -610,7 +636,11 @@ function ContactFormBlock({
           maxLength={1000}
           required
           className="w-full rounded-md border px-3 py-2.5 text-sm outline-none"
-          style={{ borderColor: "var(--page-border)", background: "var(--page-surface)", color: "var(--page-fg)" }}
+          style={{
+            borderColor: "var(--page-border)",
+            background: "var(--page-surface)",
+            color: "var(--page-fg)",
+          }}
         />
         <button type="submit" className={buttonClass} style={buttonStyle}>
           {buttonLabel}

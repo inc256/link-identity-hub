@@ -45,33 +45,32 @@ The QR code is therefore dynamic because it always points to the user's Cytic Li
 Example:
 
 Cytic Link account
-        |
-        v
+|
+v
 Luna Restaurant
-        |
-        +---- Public URL
-        |     /p/luna-restaurant
-        |
-        +---- QR Code
-        |
-        +---- Digital Profile
-              |
-              +-- About
-              +-- Website
-              +-- Phone
-              +-- WhatsApp
-              +-- Email
-              +-- TikTok
-              +-- YouTube
-              +-- Instagram
-              +-- Facebook
-              +-- LinkedIn
-              +-- Location
-              +-- Opening Hours
-              +-- Services
-              +-- Products
-              +-- Custom Links
-
+|
++---- Public URL
+| /p/luna-restaurant
+|
++---- QR Code
+|
++---- Digital Profile
+|
++-- About
++-- Website
++-- Phone
++-- WhatsApp
++-- Email
++-- TikTok
++-- YouTube
++-- Instagram
++-- Facebook
++-- LinkedIn
++-- Location
++-- Opening Hours
++-- Services
++-- Products
++-- Custom Links
 
 3. EVERYTHING MUST BE FREE
 
@@ -110,7 +109,6 @@ Prefer a simple SQLite file stored with the project/application.
 Example:
 
 /data/cytic-link.sqlite
-
 
 Use an ORM or clean database abstraction where appropriate.
 
@@ -163,7 +161,6 @@ Email
 Password
 Confirm Password
 
-
 Use secure password hashing.
 
 Never store plaintext passwords.
@@ -199,7 +196,6 @@ Luna Restaurant
 Restaurant & Café
 
 Fresh meals, great coffee and a welcoming atmosphere in Kampala.
-
 
 7. CONTACT INFORMATION
 
@@ -397,7 +393,6 @@ Appearance
 Settings
 QR Code
 
-
 Middle:
 
 Block editing controls.
@@ -409,22 +404,21 @@ Live mobile page preview.
 Example:
 
 ┌──────────────┬───────────────────────┬─────────────────────┐
-│              │                       │                     │
-│   SETTINGS   │      EDITOR           │    LIVE PREVIEW     │
-│              │                       │                     │
-│ Profile      │  Profile             │      ┌───────┐      │
-│ Blocks       │  ─────────────        │      │       │      │
-│ Appearance   │                       │      │ PHOTO │      │
-│ QR Code      │  Name                 │      │       │      │
-│              │  [____________]       │      │ NAME  │      │
-│              │                       │      │       │      │
-│              │  Bio                  │      │ LINKS │      │
-│              │  [____________]       │      │       │      │
-│              │                       │      │       │      │
-│              │  + Add Block          │      └───────┘      │
-│              │                       │                     │
+│ │ │ │
+│ SETTINGS │ EDITOR │ LIVE PREVIEW │
+│ │ │ │
+│ Profile │ Profile │ ┌───────┐ │
+│ Blocks │ ───────────── │ │ │ │
+│ Appearance │ │ │ PHOTO │ │
+│ QR Code │ Name │ │ │ │
+│ │ [************] │ │ NAME │ │
+│ │ │ │ │ │
+│ │ Bio │ │ LINKS │ │
+│ │ [************] │ │ │ │
+│ │ │ │ │ │
+│ │ + Add Block │ └───────┘ │
+│ │ │ │
 └──────────────┴───────────────────────┴─────────────────────┘
-
 
 On mobile, turn this into a clean tabbed editor.
 
@@ -674,14 +668,13 @@ Secondary surfaces
 
 Supporting colors may include:
 
-White       #FFFFFF
-Near Black  #151922
-Gray        #667085
-Light Gray  #F5F5F3
-Border      #D9D9D2
-Success     #2E7D5B
-Error       #B42318
-
+White #FFFFFF
+Near Black #151922
+Gray #667085
+Light Gray #F5F5F3
+Border #D9D9D2
+Success #2E7D5B
+Error #B42318
 
 Do not allow the supporting colors to overpower the three primary brand colors.
 
@@ -780,7 +773,6 @@ Features
 Log in
 Create your page
 
-
 Hero:
 
 Your identity.
@@ -795,7 +787,6 @@ Share everything through one simple link or QR code.
 [ Create your page ]
 
 No payment. No subscription.
-
 
 Beside the hero text show a realistic Cytic Link profile preview and QR code.
 
@@ -821,7 +812,6 @@ Customize it
 
 03
 Share your link or QR code
-
 
 Templates
 
@@ -859,7 +849,6 @@ Restaurants
 Organizations
 Personal profiles
 
-
 QR section
 
 Explain that users can update their page without replacing the QR code.
@@ -871,7 +860,6 @@ Create your Cytic Link
 Your information deserves one simple home.
 
 [ Get started ]
-
 
 18. DASHBOARD
 
@@ -885,7 +873,6 @@ Templates
 QR Code
 Settings
 
-
 Dashboard overview:
 
 Welcome back
@@ -897,13 +884,11 @@ cytic.link/p/username
 [ View Page ]
 [ QR Code ]
 
-
 Statistics can be included:
 
 Page views
 QR scans
 Link clicks
-
 
 If analytics are implemented, store them in SQLite.
 
@@ -913,7 +898,6 @@ If there is no data, show:
 
 No activity yet
 Share your page to start seeing activity.
-
 
 19. QR CODE GENERATOR
 
@@ -960,12 +944,11 @@ Optional frame
 Example:
 
 ┌─────────────────────┐
-│                     │
-│       QR CODE       │
-│                     │
-│       SCAN ME       │
+│ │
+│ QR CODE │
+│ │
+│ SCAN ME │
 └─────────────────────┘
-
 
 Allow:
 
@@ -999,11 +982,9 @@ Public profile URL:
 
 /p/:username
 
-
 Example:
 
 /p/luna-restaurant
-
 
 The page should:
 
@@ -1061,7 +1042,6 @@ Example:
         [ YouTube ]
 
         Powered by Cytic Link
-
 
 The footer branding should be subtle.
 
@@ -1150,7 +1130,6 @@ Description (optional)
 Visibility
 Order
 
-
 Example:
 
 Our Website
@@ -1161,7 +1140,6 @@ https://example.com/menu
 
 Book an Appointment
 https://example.com/book
-
 
 Allow drag-and-drop ordering.
 
@@ -1177,7 +1155,6 @@ Optional price
 Optional image
 Optional link
 
-
 Example:
 
 Website Design
@@ -1185,7 +1162,6 @@ Professional websites for businesses
 
 Logo Design
 Professional brand identity
-
 
 28. PRODUCTS BLOCK
 
@@ -1198,7 +1174,6 @@ Description
 Price
 Image
 Optional link
-
 
 Do not build a full e-commerce system.
 
@@ -1232,12 +1207,11 @@ Dashboard example:
 
 Last 30 days
 
-Page views       348
-QR scans         192
-Website clicks    74
-Phone clicks      28
-WhatsApp clicks   41
-
+Page views 348
+QR scans 192
+Website clicks 74
+Phone clicks 28
+WhatsApp clicks 41
 
 Use simple charts.
 
@@ -1251,11 +1225,9 @@ Example:
 
 /qr/:profileId
 
-
 Then redirect to:
 
 /p/:username
-
 
 Do not collect unnecessary device fingerprinting.
 
@@ -1313,7 +1285,6 @@ cafe-luna
 john-doe
 luna-designs
 
-
 Show live availability while editing.
 
 Prevent reserved routes such as:
@@ -1326,7 +1297,6 @@ admin
 api
 templates
 qr
-
 
 33. RESPONSIVE DESIGN
 
@@ -1348,7 +1318,6 @@ The page builder should switch to:
 
 Edit
 Preview
-
 
 tabs on smaller screens.
 
@@ -1421,7 +1390,6 @@ password_hash
 created_at
 updated_at
 
-
 profiles
 
 id
@@ -1444,7 +1412,6 @@ theme
 created_at
 updated_at
 
-
 social_links
 
 id
@@ -1454,7 +1421,6 @@ url
 label
 visible
 position
-
 
 page_blocks
 
@@ -1467,7 +1433,6 @@ position
 created_at
 updated_at
 
-
 services
 
 id
@@ -1478,7 +1443,6 @@ price
 image
 url
 position
-
 
 products
 
@@ -1491,7 +1455,6 @@ image
 url
 position
 
-
 analytics_events
 
 id
@@ -1499,7 +1462,6 @@ profile_id
 event_type
 block_id
 created_at
-
 
 Use appropriate indexes and foreign keys.
 
@@ -1510,7 +1472,6 @@ For the initial simple version, keep the architecture simple.
 If using local storage for uploaded images:
 
 /uploads
-
 
 Store only the file path/URL in SQLite.
 
@@ -1549,11 +1510,9 @@ Choose a template or add your first block.
 [ Choose a template ]
 [ Add block ]
 
-
 Avoid generic:
 
 Nothing here.
-
 
 40. ERROR STATES
 
@@ -1563,7 +1522,6 @@ Bad:
 
 500 Internal Server Error
 
-
 Better:
 
 Something went wrong.
@@ -1572,7 +1530,6 @@ We couldn't save your changes.
 Please try again.
 
 [ Try again ]
-
 
 41. LOADING STATES
 
@@ -1633,7 +1590,6 @@ Professional profile preview
 Restaurant profile preview
 Creator profile preview
 
-
 This makes the website demonstrate the product itself.
 
 45. ONBOARDING
@@ -1654,11 +1610,9 @@ What are you creating?
 ○ Portfolio
 ○ Company
 
-
 Step 2:
 
 Choose a starting template
-
 
 Step 3:
 
@@ -1667,7 +1621,6 @@ Tell us about yourself
 Name
 Title
 Bio
-
 
 Step 4:
 
@@ -1691,7 +1644,6 @@ For businesses and services
 
 [Use template]
 
-
 Avoid excessive marketing language.
 
 47. DASHBOARD INFORMATION ARCHITECTURE
@@ -1713,13 +1665,11 @@ Settings
 
 View Page
 
-
 Top bar:
 
 Cytic Link
-                    View Page
-                    Profile
-
+View Page
+Profile
 
 Mobile bottom navigation:
 
@@ -1728,7 +1678,6 @@ Page
 QR
 Analytics
 More
-
 
 48. PAGE PUBLISHING
 
@@ -1739,7 +1688,6 @@ Preview
 Publish
 Unpublish
 
-
 A page should not become public until published.
 
 Show:
@@ -1747,7 +1695,6 @@ Show:
 Published
 
 cytic.link/p/luna-restaurant
-
 
 Include a copy button.
 
@@ -1758,7 +1705,6 @@ Possible states:
 Draft
 Published
 Unpublished
-
 
 Do not delete user content when unpublishing.
 
@@ -1781,7 +1727,6 @@ Example:
 Luna Restaurant | Cytic Link
 
 Restaurant & Café in Kampala.
-
 
 Use profile information.
 
@@ -1867,7 +1812,6 @@ ThemeSelector
 PublishButton
 PublicProfile
 
-
 Avoid creating huge monolithic components.
 
 55. PAGE BLOCK ARCHITECTURE
@@ -1877,19 +1821,18 @@ The block renderer should use a registry pattern.
 Example conceptual structure:
 
 BlockRenderer
-    |
-    +-- ProfileBlock
-    +-- TextBlock
-    +-- LinkBlock
-    +-- SocialBlock
-    +-- ServicesBlock
-    +-- ProductsBlock
-    +-- GalleryBlock
-    +-- VideoBlock
-    +-- HoursBlock
-    +-- LocationBlock
-    +-- ContactBlock
-
+|
++-- ProfileBlock
++-- TextBlock
++-- LinkBlock
++-- SocialBlock
++-- ServicesBlock
++-- ProductsBlock
++-- GalleryBlock
++-- VideoBlock
++-- HoursBlock
++-- LocationBlock
++-- ContactBlock
 
 This makes future block types easy to add.
 
@@ -1926,7 +1869,6 @@ Show:
 Saving...
 Saved
 
-
 Do not save every keystroke directly to SQLite.
 
 Debounce updates.
@@ -1962,7 +1904,6 @@ Gold
 Warm Beige
 ████████
 
-
 Do not use gradients as a primary design technique.
 
 60. LOGO
@@ -1989,11 +1930,9 @@ The Cytic Link footer should be subtle:
 
 Create your own Cytic Link
 
-
 or:
 
 Powered by Cytic Link
-
 
 Do not dominate the user's profile with platform branding.
 
@@ -2020,11 +1959,9 @@ Logo
 Frame
 Text
 
-
 Also provide:
 
 Test QR code
-
 
 which opens the public profile.
 
@@ -2038,7 +1975,6 @@ Analytics
 
 Last 7 days | Last 30 days | Last 90 days
 
-
 Cards:
 
 Page Views
@@ -2046,13 +1982,11 @@ QR Scans
 Link Clicks
 Contact Actions
 
-
 Then a simple line/bar chart.
 
 Below:
 
 Top links
-
 
 Do not turn analytics into an overly complex business intelligence dashboard.
 
@@ -2101,7 +2035,6 @@ Example:
 Luna Restaurant
 Restaurant & Café
 Kampala, Uganda
-
 
 Use it to demonstrate the templates.
 
@@ -2262,21 +2195,20 @@ A professional digital identity platform where a QR code and link are the simple
 The user should be able to go from:
 
 Sign up
-   ↓
+↓
 Choose template
-   ↓
+↓
 Enter information
-   ↓
+↓
 Customize page
-   ↓
+↓
 Publish
-   ↓
+↓
 Get link
-   ↓
+↓
 Get QR code
-   ↓
+↓
 Share
-
 
 with as little friction as possible.
 

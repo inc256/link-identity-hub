@@ -8,7 +8,12 @@ export type ProfileKind =
   | "restaurant"
   | "portfolio"
   | "company"
-  | "services";
+  | "services"
+  | "event"
+  | "real-estate"
+  | "wellness"
+  | "studio"
+  | "clinic";
 
 export interface TemplateBlockSeed {
   type: BlockType;
@@ -58,7 +63,10 @@ export const TEMPLATES: TemplateDefinition[] = [
       { type: "profile" },
       { type: "text", content: { heading: "About me", text: "" } },
       { type: "services", content: { heading: "Services" } },
-      { type: "business_info", content: { heading: "Experience", useDescription: false, text: "" } },
+      {
+        type: "business_info",
+        content: { heading: "Experience", useDescription: false, text: "" },
+      },
       { type: "gallery", content: { heading: "Selected work", images: [] } },
       { type: "contact" },
       { type: "social", content: { style: "rows" } },
@@ -77,7 +85,10 @@ export const TEMPLATES: TemplateDefinition[] = [
       { type: "video", content: { heading: "Featured video", url: "" } },
       { type: "social", content: { style: "icons" } },
       { type: "links", content: { heading: "Latest links" } },
-      { type: "contact", content: { call: false, whatsapp: true, email: true, website: true, location: false } },
+      {
+        type: "contact",
+        content: { call: false, whatsapp: true, email: true, website: true, location: false },
+      },
     ],
   },
   {
@@ -92,7 +103,10 @@ export const TEMPLATES: TemplateDefinition[] = [
       { type: "profile" },
       { type: "social" },
       { type: "links", content: { heading: "Links" } },
-      { type: "contact", content: { call: false, whatsapp: false, email: true, website: true, location: false } },
+      {
+        type: "contact",
+        content: { call: false, whatsapp: false, email: true, website: true, location: false },
+      },
     ],
   },
   {
@@ -105,7 +119,10 @@ export const TEMPLATES: TemplateDefinition[] = [
     buttonStyle: "rounded",
     blocks: [
       { type: "profile" },
-      { type: "contact", content: { call: true, whatsapp: true, email: false, website: true, location: true } },
+      {
+        type: "contact",
+        content: { call: true, whatsapp: true, email: false, website: true, location: true },
+      },
       { type: "links", content: { heading: "Menu" } },
       { type: "gallery", content: { heading: "From our kitchen", images: [] } },
       { type: "hours" },
@@ -157,12 +174,111 @@ export const TEMPLATES: TemplateDefinition[] = [
     buttonStyle: "rectangle",
     blocks: [
       { type: "profile" },
-      { type: "business_info", content: { heading: "About the company", useDescription: true, text: "" } },
+      {
+        type: "business_info",
+        content: { heading: "About the company", useDescription: true, text: "" },
+      },
       { type: "services", content: { heading: "Our services" } },
       { type: "contact" },
       { type: "location" },
       { type: "hours" },
       { type: "social", content: { style: "rows" } },
+    ],
+  },
+  {
+    id: "event-showcase",
+    name: "Event Showcase",
+    audience: "Events, festivals and launches",
+    kind: "event",
+    theme: "dark",
+    layout: "card",
+    buttonStyle: "pill",
+    blocks: [
+      { type: "profile" },
+      { type: "text", content: { heading: "Event story", text: "" } },
+      { type: "gallery", content: { heading: "Highlights", images: [] } },
+      { type: "links", content: { heading: "Tickets & info" } },
+      {
+        type: "contact",
+        content: { call: true, whatsapp: true, email: true, website: true, location: true },
+      },
+    ],
+  },
+  {
+    id: "wellness-studio",
+    name: "Wellness Studio",
+    audience: "Gyms, clinics, salons and treatment spaces",
+    kind: "wellness",
+    theme: "warm",
+    layout: "minimal",
+    buttonStyle: "rounded",
+    blocks: [
+      { type: "profile" },
+      { type: "services", content: { heading: "Treatments" } },
+      { type: "text", content: { heading: "Our approach", text: "" } },
+      {
+        type: "contact",
+        content: { call: true, whatsapp: true, email: true, website: true, location: true },
+      },
+      { type: "hours" },
+      { type: "social" },
+    ],
+  },
+  {
+    id: "real-estate",
+    name: "Real Estate",
+    audience: "Agents, developers and property listings",
+    kind: "real-estate",
+    theme: "navy",
+    layout: "left",
+    buttonStyle: "rounded",
+    blocks: [
+      { type: "profile" },
+      { type: "gallery", content: { heading: "Featured properties", images: [] } },
+      { type: "services", content: { heading: "Properties & services" } },
+      {
+        type: "business_info",
+        content: { heading: "Why choose us", useDescription: false, text: "" },
+      },
+      { type: "contact" },
+      { type: "location" },
+    ],
+  },
+  {
+    id: "clinic",
+    name: "Clinic Care",
+    audience: "Clinics, dental and health professionals",
+    kind: "clinic",
+    theme: "light",
+    layout: "centered",
+    buttonStyle: "rectangle",
+    blocks: [
+      { type: "profile" },
+      { type: "text", content: { heading: "Who we help", text: "" } },
+      { type: "services", content: { heading: "Care services" } },
+      {
+        type: "contact",
+        content: { call: true, whatsapp: false, email: true, website: true, location: true },
+      },
+      { type: "hours" },
+      { type: "social" },
+    ],
+  },
+  {
+    id: "studio-showcase",
+    name: "Studio Showcase",
+    audience: "Photographers, designers and creative agencies",
+    kind: "studio",
+    theme: "dark",
+    layout: "card",
+    buttonStyle: "outline",
+    blocks: [
+      { type: "profile" },
+      { type: "gallery", content: { heading: "Selected work", images: [] } },
+      { type: "text", content: { heading: "What we create", text: "" } },
+      { type: "services", content: { heading: "Creative packages" } },
+      { type: "contact" },
+      { type: "social", content: { style: "icons" } },
     ],
   },
 ];
@@ -179,4 +295,10 @@ export const PROFILE_KINDS: { value: ProfileKind; label: string; template: strin
   { value: "restaurant", label: "Restaurant", template: "restaurant" },
   { value: "portfolio", label: "Portfolio", template: "portfolio" },
   { value: "company", label: "Company", template: "company" },
+  { value: "event", label: "Event", template: "event-showcase" },
+  { value: "wellness", label: "Wellness studio", template: "wellness-studio" },
+  { value: "real-estate", label: "Real estate", template: "real-estate" },
+  { value: "clinic", label: "Clinic", template: "clinic" },
+  { value: "studio", label: "Studio", template: "studio-showcase" },
+  { value: "services", label: "Services", template: "services" },
 ];
