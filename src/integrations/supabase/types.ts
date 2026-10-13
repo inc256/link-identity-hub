@@ -337,8 +337,27 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      create_identity_link: {
+        Args: {
+          p_display_name: string;
+          p_edit_token: string;
+          p_profile_data: Json;
+          p_username: string;
+        };
+        Returns: Json;
+      };
+      get_identity_link: { Args: { p_username: string }; Returns: Json };
       is_profile_public: { Args: { _profile_id: string }; Returns: boolean };
       owns_profile: { Args: { _profile_id: string }; Returns: boolean };
+      update_identity_link: {
+        Args: {
+          p_display_name: string;
+          p_edit_token: string;
+          p_profile_data: Json;
+          p_username: string;
+        };
+        Returns: boolean;
+      };
     };
     Enums: {
       [_ in never]: never;

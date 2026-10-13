@@ -77,18 +77,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Cytic Link | Your identity. One link. One scan." },
+      { title: "Create your link | Cytic Link" },
       {
         name: "description",
-        content:
-          "Create a professional digital page and share everything through one simple link or QR code.",
+        content: "Create and share your digital profile with no account required.",
       },
       { name: "author", content: "Cytic Link" },
       { property: "og:title", content: "Cytic Link" },
       {
         property: "og:description",
-        content:
-          "Create a professional digital page and share everything through one simple link or QR code.",
+        content: "Create and share your digital profile with no account required.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
