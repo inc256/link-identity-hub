@@ -64,14 +64,36 @@ export async function createIdentityLink(input: {
   email: string;
   website: string;
   address: string;
+  profileImage?: string | null;
   template: TemplateDefinition;
+  templateFields?: {
+    description: string;
+    linkTitle: string;
+    linkUrl: string;
+    serviceName: string;
+    serviceDescription: string;
+    servicePrice: string;
+    imageUrls: string[];
+    videoUrl: string;
+    socialPlatform: string;
+    socialUrl: string;
+    openingHours: ReturnType<typeof defaultHours>;
+    contactOptions: {
+      call: boolean;
+      whatsapp: boolean;
+      email: boolean;
+      website: boolean;
+      location: boolean;
+    };
+  };
 }): Promise<{ link: IdentityLink; editToken: string }> {
   const editToken = generateEditToken();
+  const templateFields = input.templateFields;
   const profile = {
     title: input.title || null,
     bio: input.bio || null,
-    description: null,
-    profile_image: null,
+    description: templateFields?.description || null,
+    profile_image: input.profileImage || null,
     cover_image: null,
     image_shape: "circle",
     show_cover: false,
@@ -80,8 +102,10 @@ export async function createIdentityLink(input: {
     email: input.email || null,
     website: input.website || null,
     address: input.address || null,
-    maps_url: null,
-    opening_hours: defaultHours().map((hour) => ({
+    maps_url: input.address
+      ? `https://maps.google.com/?q=${encodeURIComponent(input.address)}`
+      : null,
+    opening_hours: (templateFields?.openingHours ?? defaultHours()).map((hour) => ({
       day: hour.day,
       closed: hour.closed,
       open: hour.open,
@@ -95,22 +119,76 @@ export async function createIdentityLink(input: {
     analytics_enabled: false,
     onboarded: true,
   };
-  const blocks = input.template.blocks.map((seed, position) => ({
-    id: crypto.randomUUID(),
-    type: seed.type,
-    content_json: {
+  const blocks = input.template.blocks.map((seed, position) => {
+    const content: JsonObject = {
       ...(BLOCK_MAP[seed.type]?.defaults ?? {}),
       ...(seed.content ?? {}),
-    },
-    visible: true,
-    position,
-  }));
+    };
+    if (templateFields?.description && (seed.type === "text" || seed.type === "business_info")) {
+      if (seed.type === "text" || content["useDescription"] !== true) {
+        content["text"] = templateFields.description;
+      }
+    }
+    if (seed.type === "contact" && templateFields) {
+      Object.assign(content, templateFields.contactOptions);
+    }
+    if (seed.type === "gallery" && templateFields?.imageUrls.length) {
+      content["images"] = templateFields.imageUrls;
+    }
+    if (seed.type === "video" && templateFields?.videoUrl) {
+      content["url"] = templateFields.videoUrl;
+    }
+    return {
+      id: crypto.randomUUID(),
+      type: seed.type,
+      content_json: content,
+      visible: true,
+      position,
+    };
+  });
   const profileData = {
     profile,
     blocks,
-    socials: [],
-    links: [],
-    services: [],
+    socials:
+      templateFields?.socialPlatform && templateFields.socialUrl
+        ? [
+            {
+              id: crypto.randomUUID(),
+              platform: templateFields.socialPlatform,
+              url: templateFields.socialUrl,
+              label: null,
+              visible: true,
+              position: 0,
+            },
+          ]
+        : [],
+    links:
+      templateFields?.linkTitle && templateFields.linkUrl
+        ? [
+            {
+              id: crypto.randomUUID(),
+              title: templateFields.linkTitle,
+              url: templateFields.linkUrl,
+              icon: null,
+              description: null,
+              visible: true,
+              position: 0,
+            },
+          ]
+        : [],
+    services: templateFields?.serviceName
+      ? [
+          {
+            id: crypto.randomUUID(),
+            name: templateFields.serviceName,
+            description: templateFields.serviceDescription || null,
+            price: templateFields.servicePrice || null,
+            image: null,
+            url: null,
+            position: 0,
+          },
+        ]
+      : [],
     products: [],
     qr: { ...DEFAULT_QR_OPTIONS },
     nfc: { enabled: true },

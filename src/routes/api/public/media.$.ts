@@ -8,7 +8,15 @@ export const Route = createFileRoute("/api/public/media/$")({
     handlers: {
       GET: async ({ params }) => {
         const raw = (params as { _splat?: string })._splat ?? "";
-        const path = decodeURIComponent(raw);
+        const decodedPath = decodeURIComponent(raw);
+        const photoBucketPrefix = "link_identity_photos/";
+        const bucket = decodedPath.startsWith(photoBucketPrefix)
+          ? "link_identity_photos"
+          : "profile-media";
+        const path =
+          bucket === "link_identity_photos"
+            ? decodedPath.slice(photoBucketPrefix.length)
+            : decodedPath;
         if (!path || !SAFE_PATH.test(path) || path.includes("..")) {
           return new Response("Not found", { status: 404 });
         }
@@ -19,7 +27,7 @@ export const Route = createFileRoute("/api/public/media/$")({
           { auth: { persistSession: false, autoRefreshToken: false } },
         );
 
-        const { data, error } = await supabase.storage.from("profile-media").download(path);
+        const { data, error } = await supabase.storage.from(bucket).download(path);
         if (error || !data) return new Response("Not found", { status: 404 });
 
         return new Response(await data.arrayBuffer(), {

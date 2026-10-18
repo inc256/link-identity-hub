@@ -197,7 +197,28 @@ export function ProfileView({ bundle, onEvent, preview = false }: ViewProps) {
 
       case "gallery": {
         const images = list(content, "images");
-        if (!images.length) return null;
+        if (!images.length) {
+          return preview ? (
+            <section key={key}>
+              <SectionHeading>{str(content, "heading")}</SectionHeading>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" aria-hidden="true">
+                {[0, 1, 2].map((item) => (
+                  <div
+                    key={item}
+                    className="aspect-square rounded-md"
+                    style={{
+                      background: "var(--page-surface)",
+                      border: "1px solid var(--page-border)",
+                    }}
+                  />
+                ))}
+              </div>
+              <p className="mt-2 text-xs" style={{ color: "var(--page-muted)" }}>
+                Add your photos to this section.
+              </p>
+            </section>
+          ) : null;
+        }
         return (
           <section key={key}>
             <SectionHeading>{str(content, "heading")}</SectionHeading>
@@ -222,7 +243,23 @@ export function ProfileView({ bundle, onEvent, preview = false }: ViewProps) {
 
       case "video": {
         const embed = youtubeEmbed(str(content, "url"));
-        if (!embed) return null;
+        if (!embed) {
+          return preview ? (
+            <section key={key}>
+              <SectionHeading>{str(content, "heading")}</SectionHeading>
+              <div
+                className="flex aspect-video items-center justify-center rounded-lg border text-xs"
+                style={{
+                  background: "var(--page-surface)",
+                  borderColor: "var(--page-border)",
+                  color: "var(--page-muted)",
+                }}
+              >
+                Add a YouTube video to preview this section
+              </div>
+            </section>
+          ) : null;
+        }
         return (
           <section key={key}>
             <SectionHeading>{str(content, "heading")}</SectionHeading>
