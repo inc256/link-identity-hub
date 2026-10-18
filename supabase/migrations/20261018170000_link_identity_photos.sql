@@ -25,3 +25,5 @@ CREATE POLICY "Anyone can upload identity link photos"
     AND (storage.foldername(name))[2] ~ '^[a-z0-9]([a-z0-9-]{1,28}[a-z0-9])$'
     AND storage.filename(name) ~ '^[0-9a-f-]{36}\.(jpg|png|webp)$'
   );
+
+  ////ififif
