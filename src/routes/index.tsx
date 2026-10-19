@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { ArrowRight, Check, Copy, LoaderCircle } from "lucide-react";
+import { AlertCircle, ArrowRight, Check, Copy, LoaderCircle } from "lucide-react";
 import {
   TemplatePreview,
   TemplateThumbnail,
@@ -56,6 +56,22 @@ function getContactFieldDefaults(template: TemplateDefinition): ContactFieldOpti
 
 function hasTemplateBlock(template: TemplateDefinition, ...types: string[]): boolean {
   return template.blocks.some((block) => types.includes(block.type));
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isUsernameConflict(error: unknown): boolean {
+  if (!isRecord(error)) return false;
+  const message = [error["message"], error["details"], error["constraint"]]
+    .filter((value): value is string => typeof value === "string")
+    .join(" ");
+  return (
+    error["code"] === "23505" ||
+    error["status"] === 409 ||
+    message.includes("identity_links_username_key")
+  );
 }
 
 function decodeNdefRecord(record: { recordType: string; data: DataView | null }): {
@@ -129,6 +145,8 @@ function Index() {
   const [socialUrl, setSocialUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [usernameConflict, setUsernameConflict] = useState(false);
+  const usernameInputRef = useRef<HTMLInputElement>(null);
   const [link, setLink] = useState<IdentityLink | null>(null);
   const [editToken, setEditToken] = useState("");
   const [publicUrl, setPublicUrl] = useState("");
@@ -309,6 +327,7 @@ function Index() {
 
     setBusy(true);
     setError("");
+    setUsernameConflict(false);
     try {
       const result = await createIdentityLink({
         username: normalizedUsername,
@@ -354,14 +373,16 @@ function Index() {
         );
       }
     } catch (createError) {
-      console.error(createError);
-      const message =
-        createError instanceof Error ? createError.message : "We couldn't create your link.";
-      setError(
-        message.includes("identity_links_username_key")
-          ? "That link is already taken. Choose a different username."
-          : message,
-      );
+      if (isUsernameConflict(createError)) {
+        setUsernameConflict(true);
+        setError("That custom link is already in use. Choose a different one and try again.");
+        usernameInputRef.current?.focus();
+      } else {
+        console.error(createError);
+        setError(
+          createError instanceof Error ? createError.message : "We couldn't create your link.",
+        );
+      }
     } finally {
       setBusy(false);
     }
@@ -383,10 +404,10 @@ function Index() {
       setNfcStatus("NFC requires a secure HTTPS connection.");
       return;
     }
-    const NDEFReader = (navigator as Navigator & { NDEFReader?: NdefReaderCompat }).NDEFReader;
+    const NDEFReader = (window as Window & { NDEFReader?: NdefReaderCompat }).NDEFReader;
     if (!NDEFReader) {
       setNfcStatus(
-        "NFC requires an NFC-capable device and a supported browser, such as Chrome on Android.",
+        "Web NFC is unavailable here. Use Chrome on an NFC-capable Android device, enable NFC, and open this page over HTTPS.",
       );
       return;
     }
@@ -417,10 +438,16 @@ function Index() {
       console.error(nfcError);
       const message =
         nfcError instanceof Error && nfcError.name === "NotAllowedError"
-          ? "NFC permission was denied. Allow NFC access in your browser settings and try again."
-          : nfcError instanceof Error
-            ? `NFC writing failed: ${nfcError.message}`
-            : "NFC writing failed. Check browser permissions and try again.";
+          ? "Chrome blocked NFC access. Allow NFC for this site in Chrome’s site settings, then try again."
+          : nfcError instanceof Error && nfcError.name === "NotSupportedError"
+            ? "NFC is unavailable or turned off. Enable NFC on your Android device and try again."
+            : nfcError instanceof Error && nfcError.name === "NotReadableError"
+              ? "The NFC adapter is busy or unavailable. Close other NFC apps and try again."
+              : nfcError instanceof Error && nfcError.name === "SecurityError"
+                ? "This page is not allowed to use NFC. Open it directly in Chrome over HTTPS and allow NFC for the site."
+                : nfcError instanceof Error
+                  ? `NFC writing failed: ${nfcError.message}`
+                  : "NFC writing failed. Check Chrome’s site permissions and device NFC settings.";
       setNfcStatus(message);
     } finally {
       if (nfcOperationController.current === controller) {
@@ -449,10 +476,10 @@ function Index() {
       setNfcStatus("NFC requires a secure HTTPS connection.");
       return;
     }
-    const NDEFReader = (navigator as Navigator & { NDEFReader?: NdefReaderCompat }).NDEFReader;
+    const NDEFReader = (window as Window & { NDEFReader?: NdefReaderCompat }).NDEFReader;
     if (!NDEFReader) {
       setNfcStatus(
-        "NFC requires an NFC-capable device and a supported browser, such as Chrome on Android.",
+        "Web NFC is unavailable here. Use Chrome on an NFC-capable Android device, enable NFC, and open this page over HTTPS.",
       );
       return;
     }
@@ -497,13 +524,22 @@ function Index() {
       console.error(nfcError);
       const message =
         nfcError instanceof Error && nfcError.name === "NotAllowedError"
-          ? "NFC permission was denied. Allow NFC access in your browser settings and try again."
-          : nfcError instanceof Error
-            ? `NFC reading failed: ${nfcError.message}`
-            : "NFC reading failed. Check browser permissions and try again.";
+          ? "Chrome blocked NFC access. Allow NFC for this site in Chrome’s site settings, then try again."
+          : nfcError instanceof Error && nfcError.name === "NotSupportedError"
+            ? "NFC is unavailable or turned off. Enable NFC on your Android device and try again."
+            : nfcError instanceof Error && nfcError.name === "NotReadableError"
+              ? "The NFC adapter is busy or unavailable. Close other NFC apps and try again."
+              : nfcError instanceof Error && nfcError.name === "SecurityError"
+                ? "This page is not allowed to use NFC. Open it directly in Chrome over HTTPS and allow NFC for the site."
+                : nfcError instanceof Error
+                  ? `NFC reading failed: ${nfcError.message}`
+                  : "NFC reading failed. Check Chrome’s site permissions and device NFC settings.";
       setNfcStatus(message);
     }
   };
+
+  const nfcStatusIsError =
+    /blocked|unavailable|turned off|busy|failed|could not|requires|not allowed/i.test(nfcStatus);
 
   return (
     <main className="min-h-screen bg-[#F5F4F0] text-[#1F2A44]">
@@ -558,9 +594,9 @@ function Index() {
                 <section className="mt-5 rounded-lg border border-[#D9D9D2] bg-[#F8F7F4] p-4">
                   <h2 className="text-sm font-semibold">Use your link with an NFC card</h2>
                   <p className="mt-1 text-xs leading-5 text-[#667085]">
-                    On a supported NFC device and browser, choose write and hold a writable card
-                    near the device. Keep this page open until the write finishes. Web NFC requires
-                    HTTPS and a supported browser such as Chrome on Android.
+                    Chrome will ask for NFC permission when you start reading or writing. Allow
+                    access, then hold a writable card near your NFC-capable Android device. Keep
+                    this page open until the operation finishes. Web NFC requires HTTPS.
                   </p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <button
@@ -591,7 +627,11 @@ function Index() {
                     )}
                   </div>
                   {nfcStatus && (
-                    <p role="status" aria-live="polite" className="mt-3 text-xs text-[#49566d]">
+                    <p
+                      role={nfcStatusIsError ? "alert" : "status"}
+                      aria-live={nfcStatusIsError ? "assertive" : "polite"}
+                      className={`mt-3 rounded-md p-3 text-xs ${nfcStatusIsError ? "border border-[#E7B4AE] bg-[#FFF5F4] font-medium text-[#8D2F29]" : "bg-white text-[#49566d]"}`}
+                    >
                       {nfcStatus}
                     </p>
                   )}
@@ -700,13 +740,15 @@ function Index() {
                       {TEMPLATES.map((template) => {
                         const selected = hasSelectedTemplate && template.id === templateId;
                         return (
-                          <article
+                          <button
                             key={template.id}
+                            type="button"
+                            onClick={() => setTemplateToPreview(template)}
                             className={`min-w-0 rounded-lg border p-2 sm:p-2.5 transition ${
                               selected
                                 ? "border-[#1F2A44] bg-[#F8F7F4] ring-1 ring-[#1F2A44]"
                                 : "border-[#E4E2DC] hover:border-[#9AA1AE]"
-                            }`}
+                            } flex w-full flex-col text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1F2A44] focus-visible:ring-offset-2`}
                           >
                             <TemplateThumbnail template={template} />
                             <span className="mt-2 block text-xs font-semibold leading-4 sm:text-sm">
@@ -728,24 +770,10 @@ function Index() {
                                   </span>
                                 ))}
                             </span>
-                            <div className="mt-2 grid grid-cols-1 gap-2 sm:mt-3 sm:flex sm:justify-end">
-                              <button
-                                type="button"
-                                onClick={() => setTemplateToPreview(template)}
-                                className="inline-flex min-h-9 w-full items-center justify-center rounded-md border border-[#1F2A44] px-2 py-1.5 text-xs font-semibold text-[#1F2A44] hover:bg-white xl:hidden sm:w-auto sm:px-3"
-                              >
-                                Select
-                              </button>
-                              <button
-                                type="button"
-                                aria-pressed={selected}
-                                onClick={() => selectTemplate(template)}
-                                className="hidden min-h-9 items-center justify-center rounded-md border border-[#1F2A44] px-3 py-1.5 text-xs font-semibold text-[#1F2A44] hover:bg-white xl:inline-flex"
-                              >
-                                {selected ? "Selected" : "Select"}
-                              </button>
-                            </div>
-                          </article>
+                            <span className="mt-3 inline-flex min-h-9 w-full items-center justify-center rounded-md border border-[#1F2A44] px-3 py-1.5 text-xs font-semibold text-[#1F2A44] sm:w-auto sm:self-end">
+                              Preview template
+                            </span>
+                          </button>
                         );
                       })}
                     </div>
@@ -800,22 +828,40 @@ function Index() {
                           </span>
                           <input
                             id="username"
+                            ref={usernameInputRef}
                             required
                             minLength={3}
                             maxLength={30}
                             value={username}
-                            onChange={(event) =>
+                            onChange={(event) => {
                               setUsername(
                                 event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""),
-                              )
+                              );
+                              if (usernameConflict) {
+                                setUsernameConflict(false);
+                                setError("");
+                              }
+                            }}
+                            className={`min-w-0 flex-1 rounded-r-md px-3 py-2.5 text-sm outline-none ${usernameConflict ? "bg-[#FFF5F4] text-[#8D2F29] ring-1 ring-inset ring-[#C84A40]" : ""}`}
+                            aria-invalid={usernameConflict}
+                            aria-describedby={
+                              usernameConflict ? "username-help username-error" : "username-help"
                             }
-                            className="min-w-0 flex-1 rounded-r-md px-3 py-2.5 text-sm outline-none"
-                            aria-describedby="username-help"
                           />
                         </div>
                         <p id="username-help" className="mt-1.5 text-xs text-[#667085]">
                           3–30 lowercase letters, numbers, or hyphens.
                         </p>
+                        {usernameConflict && (
+                          <p
+                            id="username-error"
+                            role="alert"
+                            className="mt-2 flex items-start gap-1.5 text-sm font-medium text-[#A33A32]"
+                          >
+                            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                            <span>{error}</span>
+                          </p>
+                        )}
                       </div>
                     </div>
 
@@ -1339,10 +1385,14 @@ function Index() {
                       </section>
                     )}
 
-                    {error && (
-                      <p role="alert" className="text-sm text-[#A33A32]">
-                        {error}
-                      </p>
+                    {error && !usernameConflict && (
+                      <div
+                        role="alert"
+                        className="flex items-start gap-2 rounded-md border border-[#E7B4AE] bg-[#FFF5F4] p-3 text-sm text-[#8D2F29]"
+                      >
+                        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                        <p>{error}</p>
+                      </div>
                     )}
 
                     <button
