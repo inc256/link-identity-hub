@@ -6,6 +6,14 @@ import {
   TemplateThumbnail,
   type TemplatePreviewValues,
 } from "@/components/public/TemplatePreview";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { createIdentityLink, type IdentityLink } from "@/lib/identity-links";
 import { uploadIdentityPhoto } from "@/lib/identity-photo-storage";
 import { defaultHours, mediaUrl, type OpeningHour } from "@/lib/profile-types";
@@ -16,10 +24,10 @@ import { TEMPLATES, TEMPLATE_MAP, type TemplateDefinition } from "@/lib/template
 import { validateImageFile } from "@/lib/validation";
 
 type NdefReaderCompat = new () => {
-  write: (payload: {
-    records: { recordType: string; data: string }[];
-    signal?: AbortSignal;
-  }) => Promise<void>;
+  write: (
+    message: { records: { recordType: string; data: string }[] },
+    options?: { signal?: AbortSignal },
+  ) => Promise<void>;
   scan: (options?: { signal?: AbortSignal }) => Promise<void>;
   onreading: ((event: NdefReadingEventCompat) => void) | null;
   onreadingerror: ((event: Event) => void) | null;
@@ -100,7 +108,10 @@ function Index() {
   const [address, setAddress] = useState("");
   const [hours, setHours] = useState<OpeningHour[]>(defaultHours());
   const [showHours, setShowHours] = useState(hasTemplateBlock(TEMPLATES[0]!, "hours"));
-  const [templateId, setTemplateId] = useState(TEMPLATES[0]?.id ?? "");
+  const [templateId, setTemplateId] = useState("");
+  const [hasSelectedTemplate, setHasSelectedTemplate] = useState(false);
+  const [showDetailsPage, setShowDetailsPage] = useState(false);
+  const [templateToPreview, setTemplateToPreview] = useState<TemplateDefinition | null>(null);
   const [contactFields, setContactFields] = useState<ContactFieldOptions>(
     getContactFieldDefaults(TEMPLATES[0]!),
   );
@@ -129,7 +140,7 @@ function Index() {
   );
   const [nfcReading, setNfcReading] = useState(false);
   const [nfcWriting, setNfcWriting] = useState(false);
-  const nfcScanController = useRef<AbortController | null>(null);
+  const nfcOperationController = useRef<AbortController | null>(null);
   const selectedTemplate = TEMPLATE_MAP[templateId] ?? TEMPLATES[0]!;
   const templateFeatures = {
     about: hasTemplateBlock(selectedTemplate, "text", "business_info"),
@@ -164,6 +175,14 @@ function Index() {
     hours,
     showHours,
   };
+  const selectTemplate = (template: TemplateDefinition) => {
+    setTemplateId(template.id);
+    setHasSelectedTemplate(true);
+    setShowDetailsPage(true);
+    setContactFields(getContactFieldDefaults(template));
+    setShowHours(hasTemplateBlock(template, "hours"));
+    setError("");
+  };
 
   useEffect(() => {
     if (!link) return;
@@ -180,7 +199,9 @@ function Index() {
 
   useEffect(
     () => () => {
-      nfcScanController.current?.abort();
+      const controller = nfcOperationController.current;
+      nfcOperationController.current = null;
+      controller?.abort();
     },
     [],
   );
@@ -370,18 +391,29 @@ function Index() {
       return;
     }
 
-    nfcScanController.current?.abort();
-    nfcScanController.current = null;
+    nfcOperationController.current?.abort();
+    const controller = new AbortController();
+    nfcOperationController.current = controller;
     setNfcReading(false);
     setNfcReadResult(null);
     setNfcWriting(true);
-    setNfcStatus("Hold an NFC card near your device.");
+    setNfcStatus(
+      "Waiting for an NFC card. Keep this page open and hold the card near your device.",
+    );
     try {
-      await new NDEFReader().write({
-        records: [{ recordType: "url", data: publicUrl }],
-      });
+      await new NDEFReader().write(
+        { records: [{ recordType: "url", data: publicUrl }] },
+        { signal: controller.signal },
+      );
       setNfcStatus("Your profile link was written to the NFC card.");
     } catch (nfcError) {
+      if (controller.signal.aborted) {
+        if (nfcOperationController.current === controller) {
+          nfcOperationController.current = null;
+          setNfcStatus("NFC writing canceled.");
+        }
+        return;
+      }
       console.error(nfcError);
       const message =
         nfcError instanceof Error && nfcError.name === "NotAllowedError"
@@ -391,13 +423,23 @@ function Index() {
             : "NFC writing failed. Check browser permissions and try again.";
       setNfcStatus(message);
     } finally {
-      setNfcWriting(false);
+      if (nfcOperationController.current === controller) {
+        nfcOperationController.current = null;
+        setNfcWriting(false);
+      }
     }
   };
 
+  const stopNfcWrite = () => {
+    nfcOperationController.current?.abort();
+    nfcOperationController.current = null;
+    setNfcWriting(false);
+    setNfcStatus("NFC writing canceled.");
+  };
+
   const stopNfcRead = () => {
-    nfcScanController.current?.abort();
-    nfcScanController.current = null;
+    nfcOperationController.current?.abort();
+    nfcOperationController.current = null;
     setNfcReading(false);
     setNfcStatus("NFC reading stopped.");
   };
@@ -416,16 +458,16 @@ function Index() {
     }
 
     const controller = new AbortController();
-    nfcScanController.current?.abort();
-    nfcScanController.current = controller;
+    nfcOperationController.current?.abort();
+    nfcOperationController.current = controller;
     setNfcReadResult(null);
     setNfcReading(true);
     setNfcStatus("Hold an NFC card near your device.");
     try {
       const reader = new NDEFReader();
       reader.onreading = (event) => {
-        if (nfcScanController.current !== controller) return;
-        nfcScanController.current = null;
+        if (nfcOperationController.current !== controller) return;
+        nfcOperationController.current = null;
         controller.abort();
         setNfcReading(false);
         const result = event.message.records
@@ -439,8 +481,8 @@ function Index() {
         );
       };
       reader.onreadingerror = () => {
-        if (nfcScanController.current !== controller) return;
-        nfcScanController.current = null;
+        if (nfcOperationController.current !== controller) return;
+        nfcOperationController.current = null;
         controller.abort();
         setNfcReading(false);
         setNfcStatus("The NFC card could not be read. Hold it near the device and try again.");
@@ -448,7 +490,9 @@ function Index() {
       await reader.scan({ signal: controller.signal });
     } catch (nfcError) {
       if (controller.signal.aborted) return;
-      nfcScanController.current = null;
+      if (nfcOperationController.current === controller) {
+        nfcOperationController.current = null;
+      }
       setNfcReading(false);
       console.error(nfcError);
       const message =
@@ -511,25 +555,43 @@ function Index() {
                     Download QR code
                   </a>
                 )}
-                <div>
-                  <button
-                    type="button"
-                    onClick={() => void writeNfcCard()}
-                    disabled={nfcWriting || !publicUrl}
-                    className="mt-3 inline-flex items-center gap-2 rounded-md border border-[#D9D9D2] px-3 py-2 text-sm font-medium hover:bg-[#F5F5F3]"
-                  >
-                    {nfcWriting ? "Writing to NFC card…" : "Write link to NFC card"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void (nfcReading ? stopNfcRead() : readNfcCard())}
-                    disabled={nfcWriting}
-                    className="ml-2 mt-3 inline-flex items-center gap-2 rounded-md border border-[#D9D9D2] px-3 py-2 text-sm font-medium hover:bg-[#F5F5F3]"
-                  >
-                    {nfcReading ? "Stop reading" : "Read NFC card"}
-                  </button>
+                <section className="mt-5 rounded-lg border border-[#D9D9D2] bg-[#F8F7F4] p-4">
+                  <h2 className="text-sm font-semibold">Use your link with an NFC card</h2>
+                  <p className="mt-1 text-xs leading-5 text-[#667085]">
+                    On a supported NFC device and browser, choose write and hold a writable card
+                    near the device. Keep this page open until the write finishes. Web NFC requires
+                    HTTPS and a supported browser such as Chrome on Android.
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void writeNfcCard()}
+                      disabled={nfcWriting || nfcReading || !publicUrl}
+                      className="inline-flex items-center justify-center gap-2 rounded-md bg-[#1F2A44] px-3 py-2 text-sm font-medium text-white hover:bg-[#253455] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {nfcWriting && <LoaderCircle className="h-4 w-4 animate-spin" />}
+                      {nfcWriting ? "Waiting for NFC card…" : "Write link to NFC card"}
+                    </button>
+                    {nfcWriting ? (
+                      <button
+                        type="button"
+                        onClick={stopNfcWrite}
+                        className="rounded-md border border-[#D9D9D2] px-3 py-2 text-sm font-medium hover:bg-white"
+                      >
+                        Cancel writing
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => void (nfcReading ? stopNfcRead() : readNfcCard())}
+                        className="rounded-md border border-[#D9D9D2] px-3 py-2 text-sm font-medium hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {nfcReading ? "Stop reading" : "Read NFC card"}
+                      </button>
+                    )}
+                  </div>
                   {nfcStatus && (
-                    <p role="status" className="mt-2 text-xs text-[#667085]">
+                    <p role="status" aria-live="polite" className="mt-3 text-xs text-[#49566d]">
                       {nfcStatus}
                     </p>
                   )}
@@ -549,7 +611,7 @@ function Index() {
                       )}
                     </p>
                   )}
-                </div>
+                </section>
               </div>
               {qrCode && (
                 <img
@@ -612,675 +674,764 @@ function Index() {
             <div>
               <p className="eyebrow mb-2">No account needed</p>
               <h1 className="text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">
-                Create your link
+                {showDetailsPage ? "Fill in your details" : "Create your link"}
               </h1>
               <p className="mt-2 text-sm leading-6 text-[#667085]">
-                Choose a design, add the details that fit, and preview your profile as you build it.
+                {showDetailsPage
+                  ? `Add the information you want to show on your ${selectedTemplate.name} page.`
+                  : "Choose a design, add the details that fit, and preview your profile as you build it."}
               </p>
 
               <form
                 onSubmit={handleCreate}
                 className="mt-6 space-y-6 rounded-xl border border-[#D9D9D2] bg-white p-5 sm:p-7"
               >
-                <section aria-labelledby="template-heading">
-                  <div className="mb-3">
-                    <h2 id="template-heading" className="text-base font-semibold">
-                      Choose a template
-                    </h2>
-                    <p className="mt-1 text-xs text-[#667085]">
-                      Each design comes with sections and a style tailored to its purpose.
-                    </p>
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">
-                    {TEMPLATES.map((template) => {
-                      const selected = template.id === templateId;
-                      return (
-                        <button
-                          key={template.id}
-                          type="button"
-                          aria-pressed={selected}
-                          onClick={() => {
-                            setTemplateId(template.id);
-                            setContactFields(getContactFieldDefaults(template));
-                            setShowHours(hasTemplateBlock(template, "hours"));
-                            setError("");
-                          }}
-                          className={`rounded-lg border p-2.5 text-left transition ${
-                            selected
-                              ? "border-[#1F2A44] bg-[#F8F7F4] ring-1 ring-[#1F2A44]"
-                              : "border-[#E4E2DC] hover:border-[#9AA1AE]"
-                          }`}
-                        >
-                          <TemplateThumbnail template={template} />
-                          <span className="mt-2 block text-sm font-semibold">{template.name}</span>
-                          <span className="mt-0.5 block min-h-8 text-xs leading-4 text-[#667085]">
-                            {template.audience}
-                          </span>
-                          <span className="mt-2 flex flex-wrap gap-1">
-                            {[...new Set(template.blocks.map((block) => block.type))]
-                              .filter((type) => type !== "profile")
-                              .slice(0, 4)
-                              .map((type) => (
-                                <span
-                                  key={type}
-                                  className="rounded-full bg-white px-2 py-0.5 text-[10px] capitalize text-[#667085]"
-                                >
-                                  {type.replace("_", " ")}
-                                </span>
-                              ))}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <div className="mt-5 xl:hidden">
-                    <h3 className="mb-2 text-sm font-semibold">
-                      Live preview · {selectedTemplate.name}
-                    </h3>
-                    <div className="h-[350px] overflow-hidden rounded-lg border border-[#D9D9D2] bg-[#F5F4F0]">
-                      <div
-                        className="relative left-1/2 w-[520px] origin-top"
-                        style={{ transform: "translateX(-50%) scale(0.62)" }}
-                      >
-                        <TemplatePreview
-                          template={selectedTemplate}
-                          values={previewValues}
-                          contactFields={contactFields}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </section>
-
-                <div className="grid gap-5 sm:grid-cols-2">
-                  <div>
-                    <label htmlFor="display-name" className="mb-1.5 block text-sm font-medium">
-                      Name or business
-                    </label>
-                    <input
-                      id="display-name"
-                      required
-                      maxLength={80}
-                      autoComplete="organization"
-                      value={displayName}
-                      onChange={(event) => updateDisplayName(event.target.value)}
-                      className="w-full rounded-md border border-[#D9D9D2] px-3 py-2.5 text-sm outline-none focus:border-[#1F2A44]"
-                      placeholder="e.g. Luna Restaurant"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="username" className="mb-1.5 block text-sm font-medium">
-                      Custom link
-                    </label>
-                    <div className="flex rounded-md border border-[#D9D9D2] focus-within:border-[#1F2A44]">
-                      <span className="shrink-0 border-r border-[#D9D9D2] bg-[#F8F7F4] px-2.5 py-2.5 text-xs text-[#667085]">
-                        /p/
-                      </span>
-                      <input
-                        id="username"
-                        required
-                        minLength={3}
-                        maxLength={30}
-                        value={username}
-                        onChange={(event) =>
-                          setUsername(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))
-                        }
-                        className="min-w-0 flex-1 rounded-r-md px-3 py-2.5 text-sm outline-none"
-                        aria-describedby="username-help"
-                      />
-                    </div>
-                    <p id="username-help" className="mt-1.5 text-xs text-[#667085]">
-                      3–30 lowercase letters, numbers, or hyphens.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid gap-5 sm:grid-cols-2">
-                  <div>
-                    <label htmlFor="title" className="mb-1.5 block text-sm font-medium">
-                      Title <span className="font-normal text-[#667085]">Optional</span>
-                    </label>
-                    <input
-                      id="title"
-                      maxLength={100}
-                      value={title}
-                      onChange={(event) => setTitle(event.target.value)}
-                      className="w-full rounded-md border border-[#D9D9D2] px-3 py-2.5 text-sm outline-none focus:border-[#1F2A44]"
-                      placeholder="e.g. Restaurant & Café"
-                    />
-                  </div>
-                  <p className="flex items-end rounded-md bg-[#F8F7F4] px-3 py-2.5 text-sm text-[#667085]">
-                    Selected design:{" "}
-                    <span className="ml-1 font-semibold text-[#1F2A44]">
-                      {selectedTemplate.name}
-                    </span>
-                  </p>
-                </div>
-
-                <div>
-                  <label htmlFor="bio" className="mb-1.5 block text-sm font-medium">
-                    Short bio <span className="font-normal text-[#667085]">Optional</span>
-                  </label>
-                  <textarea
-                    id="bio"
-                    maxLength={500}
-                    rows={3}
-                    value={bio}
-                    onChange={(event) => setBio(event.target.value)}
-                    className="w-full resize-y rounded-md border border-[#D9D9D2] px-3 py-2.5 text-sm outline-none focus:border-[#1F2A44]"
-                    placeholder="A few words about you or your business"
-                  />
-                </div>
-
-                <section className="space-y-3 rounded-lg bg-[#F8F7F4] p-4">
-                  <div>
-                    <h2 className="text-sm font-semibold">Profile photo</h2>
-                    <p className="mt-1 text-xs text-[#667085]">JPG, PNG, or WebP. Maximum 5 MB.</p>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    {profileImageUrl && (
-                      <img
-                        src={mediaUrl(profileImageUrl) ?? ""}
-                        alt="Profile photo preview"
-                        className="h-16 w-16 rounded-full border border-[#D9D9D2] object-cover"
-                      />
-                    )}
-                    <div>
-                      <input
-                        id="profile-photo"
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp"
-                        disabled={uploadingPhotos}
-                        onChange={(event) =>
-                          void uploadProfilePhoto(event.currentTarget.files?.[0])
-                        }
-                        className="block max-w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-white file:px-3 file:py-2 file:text-sm file:font-medium"
-                      />
-                      {profileImageUrl && (
-                        <button
-                          type="button"
-                          onClick={() => setProfileImageUrl("")}
-                          className="mt-2 text-xs underline underline-offset-2"
-                        >
-                          Remove profile photo
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </section>
-
-                {templateFeatures.about && (
-                  <div>
-                    <label htmlFor="description" className="mb-1.5 block text-sm font-medium">
-                      {String(
-                        selectedTemplate.blocks.find(
-                          (block) => block.type === "text" || block.type === "business_info",
-                        )?.content?.["heading"] ?? "About",
-                      )}
-                      <span className="ml-1 font-normal text-[#667085]">Optional</span>
-                    </label>
-                    <textarea
-                      id="description"
-                      maxLength={1200}
-                      rows={3}
-                      value={description}
-                      onChange={(event) => setDescription(event.target.value)}
-                      className="w-full resize-y rounded-md border border-[#D9D9D2] px-3 py-2.5 text-sm outline-none focus:border-[#1F2A44]"
-                      placeholder={`Write a little more about ${displayName || "yourself"}`}
-                    />
-                  </div>
-                )}
-
-                {templateFeatures.contact && (
-                  <section aria-labelledby="contact-fields-heading" className="space-y-3">
-                    <div>
-                      <h2 id="contact-fields-heading" className="text-sm font-semibold">
-                        Choose contact fields
+                {!showDetailsPage && (
+                  <section aria-labelledby="template-heading">
+                    <div className="mb-3">
+                      <h2 id="template-heading" className="text-base font-semibold">
+                        Choose a template
                       </h2>
                       <p className="mt-1 text-xs text-[#667085]">
-                        Select which details to collect and show on this template.
+                        Each design comes with sections and a style tailored to its purpose.
                       </p>
                     </div>
-                    <div className="flex flex-wrap gap-x-5 gap-y-2">
-                      {(
-                        [
-                          ["phone", "Phone"],
-                          ["whatsapp", "WhatsApp"],
-                          ["email", "Email"],
-                          ["website", "Website"],
-                          ["location", "Address and directions"],
-                        ] as const
-                      ).map(([field, label]) => (
-                        <label key={field} className="inline-flex items-center gap-2 text-sm">
-                          <input
-                            type="checkbox"
-                            checked={contactFields[field]}
-                            onChange={(event) =>
-                              setContactFields((current) => ({
-                                ...current,
-                                [field]: event.target.checked,
-                              }))
-                            }
-                            className="accent-[#1F2A44]"
-                          />
-                          {label}
-                        </label>
-                      ))}
-                    </div>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      {contactFields.phone && (
-                        <div>
-                          <label htmlFor="phone" className="mb-1.5 block text-sm font-medium">
-                            Phone number
-                          </label>
-                          <input
-                            id="phone"
-                            type="tel"
-                            autoComplete="tel"
-                            value={phone}
-                            onChange={(event) => setPhone(event.target.value)}
-                            className="w-full rounded-md border border-[#D9D9D2] px-3 py-2.5 text-sm outline-none focus:border-[#1F2A44]"
-                          />
-                        </div>
-                      )}
-                      {contactFields.whatsapp && (
-                        <div>
-                          <label htmlFor="whatsapp" className="mb-1.5 block text-sm font-medium">
-                            WhatsApp number
-                          </label>
-                          <input
-                            id="whatsapp"
-                            type="tel"
-                            value={whatsapp}
-                            onChange={(event) => setWhatsapp(event.target.value)}
-                            className="w-full rounded-md border border-[#D9D9D2] px-3 py-2.5 text-sm outline-none focus:border-[#1F2A44]"
-                          />
-                        </div>
-                      )}
-                      {contactFields.email && (
-                        <div>
-                          <label htmlFor="email" className="mb-1.5 block text-sm font-medium">
-                            Contact email
-                          </label>
-                          <input
-                            id="email"
-                            type="email"
-                            autoComplete="email"
-                            value={email}
-                            onChange={(event) => setEmail(event.target.value)}
-                            className="w-full rounded-md border border-[#D9D9D2] px-3 py-2.5 text-sm outline-none focus:border-[#1F2A44]"
-                          />
-                        </div>
-                      )}
-                      {contactFields.website && (
-                        <div>
-                          <label htmlFor="website" className="mb-1.5 block text-sm font-medium">
-                            Website
-                          </label>
-                          <input
-                            id="website"
-                            type="url"
-                            value={website}
-                            onChange={(event) => setWebsite(event.target.value)}
-                            className="w-full rounded-md border border-[#D9D9D2] px-3 py-2.5 text-sm outline-none focus:border-[#1F2A44]"
-                            placeholder="https://"
-                          />
-                        </div>
-                      )}
-                      {contactFields.location && (
-                        <div className="sm:col-span-2">
-                          <label htmlFor="address" className="mb-1.5 block text-sm font-medium">
-                            Business or meeting address
-                          </label>
-                          <input
-                            id="address"
-                            autoComplete="street-address"
-                            value={address}
-                            onChange={(event) => setAddress(event.target.value)}
-                            className="w-full rounded-md border border-[#D9D9D2] px-3 py-2.5 text-sm outline-none focus:border-[#1F2A44]"
-                          />
-                        </div>
-                      )}
+                    <div className="grid grid-cols-2 gap-2 sm:gap-3 2xl:grid-cols-3">
+                      {TEMPLATES.map((template) => {
+                        const selected = hasSelectedTemplate && template.id === templateId;
+                        return (
+                          <article
+                            key={template.id}
+                            className={`min-w-0 rounded-lg border p-2 sm:p-2.5 transition ${
+                              selected
+                                ? "border-[#1F2A44] bg-[#F8F7F4] ring-1 ring-[#1F2A44]"
+                                : "border-[#E4E2DC] hover:border-[#9AA1AE]"
+                            }`}
+                          >
+                            <TemplateThumbnail template={template} />
+                            <span className="mt-2 block text-xs font-semibold leading-4 sm:text-sm">
+                              {template.name}
+                            </span>
+                            <span className="mt-0.5 block min-h-8 text-[10px] leading-4 text-[#667085] sm:text-xs">
+                              {template.audience}
+                            </span>
+                            <span className="mt-2 flex min-h-6 flex-wrap gap-1">
+                              {[...new Set(template.blocks.map((block) => block.type))]
+                                .filter((type) => type !== "profile")
+                                .slice(0, 3)
+                                .map((type) => (
+                                  <span
+                                    key={type}
+                                    className="rounded-full bg-white px-1.5 py-0.5 text-[9px] capitalize leading-3 text-[#667085] sm:px-2 sm:text-[10px]"
+                                  >
+                                    {type.replace("_", " ")}
+                                  </span>
+                                ))}
+                            </span>
+                            <div className="mt-2 grid grid-cols-1 gap-2 sm:mt-3 sm:flex sm:justify-end">
+                              <button
+                                type="button"
+                                onClick={() => setTemplateToPreview(template)}
+                                className="inline-flex min-h-9 w-full items-center justify-center rounded-md border border-[#1F2A44] px-2 py-1.5 text-xs font-semibold text-[#1F2A44] hover:bg-white xl:hidden sm:w-auto sm:px-3"
+                              >
+                                Select
+                              </button>
+                              <button
+                                type="button"
+                                aria-pressed={selected}
+                                onClick={() => selectTemplate(template)}
+                                className="hidden min-h-9 items-center justify-center rounded-md border border-[#1F2A44] px-3 py-1.5 text-xs font-semibold text-[#1F2A44] hover:bg-white xl:inline-flex"
+                              >
+                                {selected ? "Selected" : "Select"}
+                              </button>
+                            </div>
+                          </article>
+                        );
+                      })}
                     </div>
                   </section>
                 )}
 
-                {templateFeatures.hours && (
-                  <section aria-labelledby="hours-heading" className="space-y-3">
-                    <div className="flex items-start justify-between gap-4">
+                {showDetailsPage ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowDetailsPage(false);
+                        setError("");
+                      }}
+                      className="inline-flex items-center gap-2 text-sm font-semibold text-[#1F2A44] underline underline-offset-4"
+                    >
+                      <ArrowRight className="h-4 w-4 rotate-180" />
+                      Back to templates
+                    </button>
+                    <section aria-labelledby="details-heading">
+                      <h2 id="details-heading" className="text-base font-semibold">
+                        Profile information
+                      </h2>
+                      <p className="mt-1 text-xs text-[#667085]">
+                        Add the information you want to show on your page.
+                      </p>
+                    </section>
+
+                    <div className="grid gap-5 sm:grid-cols-2">
                       <div>
-                        <h2 id="hours-heading" className="text-sm font-semibold">
-                          Opening hours
-                        </h2>
-                        <p className="mt-1 text-xs text-[#667085]">
-                          Customize the schedule included with this template.
+                        <label htmlFor="display-name" className="mb-1.5 block text-sm font-medium">
+                          Name or business
+                        </label>
+                        <input
+                          id="display-name"
+                          required
+                          maxLength={80}
+                          autoComplete="organization"
+                          value={displayName}
+                          onChange={(event) => updateDisplayName(event.target.value)}
+                          className="w-full rounded-md border border-[#D9D9D2] px-3 py-2.5 text-sm outline-none focus:border-[#1F2A44]"
+                          placeholder="e.g. Luna Restaurant"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="username" className="mb-1.5 block text-sm font-medium">
+                          Custom link
+                        </label>
+                        <div className="flex rounded-md border border-[#D9D9D2] focus-within:border-[#1F2A44]">
+                          <span className="shrink-0 border-r border-[#D9D9D2] bg-[#F8F7F4] px-2.5 py-2.5 text-xs text-[#667085]">
+                            /p/
+                          </span>
+                          <input
+                            id="username"
+                            required
+                            minLength={3}
+                            maxLength={30}
+                            value={username}
+                            onChange={(event) =>
+                              setUsername(
+                                event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""),
+                              )
+                            }
+                            className="min-w-0 flex-1 rounded-r-md px-3 py-2.5 text-sm outline-none"
+                            aria-describedby="username-help"
+                          />
+                        </div>
+                        <p id="username-help" className="mt-1.5 text-xs text-[#667085]">
+                          3–30 lowercase letters, numbers, or hyphens.
                         </p>
                       </div>
-                      <label className="inline-flex shrink-0 items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={showHours}
-                          onChange={(event) => setShowHours(event.target.checked)}
-                          className="accent-[#1F2A44]"
-                        />
-                        Include hours
-                      </label>
                     </div>
-                    {showHours && (
-                      <div className="divide-y rounded-lg border border-[#E4E2DC]">
-                        {hours.map((hour, index) => (
-                          <div
-                            key={hour.day}
-                            className="grid items-center gap-2 px-3 py-2 sm:grid-cols-[1fr_auto_1fr_1fr]"
-                          >
-                            <span className="text-sm font-medium">{hour.day}</span>
-                            <label className="inline-flex items-center gap-2 text-xs text-[#667085]">
+
+                    <div className="grid gap-5 sm:grid-cols-2">
+                      <div>
+                        <label htmlFor="title" className="mb-1.5 block text-sm font-medium">
+                          Title <span className="font-normal text-[#667085]">Optional</span>
+                        </label>
+                        <input
+                          id="title"
+                          maxLength={100}
+                          value={title}
+                          onChange={(event) => setTitle(event.target.value)}
+                          className="w-full rounded-md border border-[#D9D9D2] px-3 py-2.5 text-sm outline-none focus:border-[#1F2A44]"
+                          placeholder="e.g. Restaurant & Café"
+                        />
+                      </div>
+                      <p className="flex items-end rounded-md bg-[#F8F7F4] px-3 py-2.5 text-sm text-[#667085]">
+                        Selected design:{" "}
+                        <span className="ml-1 font-semibold text-[#1F2A44]">
+                          {selectedTemplate.name}
+                        </span>
+                      </p>
+                    </div>
+
+                    <div>
+                      <label htmlFor="bio" className="mb-1.5 block text-sm font-medium">
+                        Short bio <span className="font-normal text-[#667085]">Optional</span>
+                      </label>
+                      <textarea
+                        id="bio"
+                        maxLength={500}
+                        rows={3}
+                        value={bio}
+                        onChange={(event) => setBio(event.target.value)}
+                        className="w-full resize-y rounded-md border border-[#D9D9D2] px-3 py-2.5 text-sm outline-none focus:border-[#1F2A44]"
+                        placeholder="A few words about you or your business"
+                      />
+                    </div>
+
+                    <section className="space-y-3 rounded-lg bg-[#F8F7F4] p-4">
+                      <div>
+                        <h2 className="text-sm font-semibold">Profile photo</h2>
+                        <p className="mt-1 text-xs text-[#667085]">
+                          JPG, PNG, or WebP. Maximum 5 MB.
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        {profileImageUrl && (
+                          <img
+                            src={mediaUrl(profileImageUrl) ?? ""}
+                            alt="Profile photo preview"
+                            className="h-16 w-16 rounded-full border border-[#D9D9D2] object-cover"
+                          />
+                        )}
+                        <div>
+                          <input
+                            id="profile-photo"
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            disabled={uploadingPhotos}
+                            onChange={(event) =>
+                              void uploadProfilePhoto(event.currentTarget.files?.[0])
+                            }
+                            className="block max-w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-white file:px-3 file:py-2 file:text-sm file:font-medium"
+                          />
+                          {profileImageUrl && (
+                            <button
+                              type="button"
+                              onClick={() => setProfileImageUrl("")}
+                              className="mt-2 text-xs underline underline-offset-2"
+                            >
+                              Remove profile photo
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </section>
+
+                    {templateFeatures.about && (
+                      <div>
+                        <label htmlFor="description" className="mb-1.5 block text-sm font-medium">
+                          {String(
+                            selectedTemplate.blocks.find(
+                              (block) => block.type === "text" || block.type === "business_info",
+                            )?.content?.["heading"] ?? "About",
+                          )}
+                          <span className="ml-1 font-normal text-[#667085]">Optional</span>
+                        </label>
+                        <textarea
+                          id="description"
+                          maxLength={1200}
+                          rows={3}
+                          value={description}
+                          onChange={(event) => setDescription(event.target.value)}
+                          className="w-full resize-y rounded-md border border-[#D9D9D2] px-3 py-2.5 text-sm outline-none focus:border-[#1F2A44]"
+                          placeholder={`Write a little more about ${displayName || "yourself"}`}
+                        />
+                      </div>
+                    )}
+
+                    {templateFeatures.contact && (
+                      <section aria-labelledby="contact-fields-heading" className="space-y-3">
+                        <div>
+                          <h2 id="contact-fields-heading" className="text-sm font-semibold">
+                            Choose contact fields
+                          </h2>
+                          <p className="mt-1 text-xs text-[#667085]">
+                            Select which details to collect and show on this template.
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-x-5 gap-y-2">
+                          {(
+                            [
+                              ["phone", "Phone"],
+                              ["whatsapp", "WhatsApp"],
+                              ["email", "Email"],
+                              ["website", "Website"],
+                              ["location", "Address and directions"],
+                            ] as const
+                          ).map(([field, label]) => (
+                            <label key={field} className="inline-flex items-center gap-2 text-sm">
                               <input
                                 type="checkbox"
-                                checked={hour.closed}
+                                checked={contactFields[field]}
                                 onChange={(event) =>
-                                  setHours((current) =>
-                                    current.map((item, itemIndex) =>
-                                      itemIndex === index
-                                        ? { ...item, closed: event.target.checked }
-                                        : item,
-                                    ),
-                                  )
+                                  setContactFields((current) => ({
+                                    ...current,
+                                    [field]: event.target.checked,
+                                  }))
                                 }
                                 className="accent-[#1F2A44]"
                               />
-                              Closed
+                              {label}
                             </label>
-                            <input
-                              type="time"
-                              aria-label={`${hour.day} opening time`}
-                              value={hour.open}
-                              disabled={hour.closed}
-                              onChange={(event) =>
-                                setHours((current) =>
-                                  current.map((item, itemIndex) =>
-                                    itemIndex === index
-                                      ? { ...item, open: event.target.value }
-                                      : item,
-                                  ),
-                                )
-                              }
-                              className="w-full rounded-md border border-[#D9D9D2] px-2 py-1.5 text-xs disabled:opacity-40"
-                            />
-                            <input
-                              type="time"
-                              aria-label={`${hour.day} closing time`}
-                              value={hour.close}
-                              disabled={hour.closed}
-                              onChange={(event) =>
-                                setHours((current) =>
-                                  current.map((item, itemIndex) =>
-                                    itemIndex === index
-                                      ? { ...item, close: event.target.value }
-                                      : item,
-                                  ),
-                                )
-                              }
-                              className="w-full rounded-md border border-[#D9D9D2] px-2 py-1.5 text-xs disabled:opacity-40"
-                            />
+                          ))}
+                        </div>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          {contactFields.phone && (
+                            <div>
+                              <label htmlFor="phone" className="mb-1.5 block text-sm font-medium">
+                                Phone number
+                              </label>
+                              <input
+                                id="phone"
+                                type="tel"
+                                autoComplete="tel"
+                                value={phone}
+                                onChange={(event) => setPhone(event.target.value)}
+                                className="w-full rounded-md border border-[#D9D9D2] px-3 py-2.5 text-sm outline-none focus:border-[#1F2A44]"
+                              />
+                            </div>
+                          )}
+                          {contactFields.whatsapp && (
+                            <div>
+                              <label
+                                htmlFor="whatsapp"
+                                className="mb-1.5 block text-sm font-medium"
+                              >
+                                WhatsApp number
+                              </label>
+                              <input
+                                id="whatsapp"
+                                type="tel"
+                                value={whatsapp}
+                                onChange={(event) => setWhatsapp(event.target.value)}
+                                className="w-full rounded-md border border-[#D9D9D2] px-3 py-2.5 text-sm outline-none focus:border-[#1F2A44]"
+                              />
+                            </div>
+                          )}
+                          {contactFields.email && (
+                            <div>
+                              <label htmlFor="email" className="mb-1.5 block text-sm font-medium">
+                                Contact email
+                              </label>
+                              <input
+                                id="email"
+                                type="email"
+                                autoComplete="email"
+                                value={email}
+                                onChange={(event) => setEmail(event.target.value)}
+                                className="w-full rounded-md border border-[#D9D9D2] px-3 py-2.5 text-sm outline-none focus:border-[#1F2A44]"
+                              />
+                            </div>
+                          )}
+                          {contactFields.website && (
+                            <div>
+                              <label htmlFor="website" className="mb-1.5 block text-sm font-medium">
+                                Website
+                              </label>
+                              <input
+                                id="website"
+                                type="url"
+                                value={website}
+                                onChange={(event) => setWebsite(event.target.value)}
+                                className="w-full rounded-md border border-[#D9D9D2] px-3 py-2.5 text-sm outline-none focus:border-[#1F2A44]"
+                                placeholder="https://"
+                              />
+                            </div>
+                          )}
+                          {contactFields.location && (
+                            <div className="sm:col-span-2">
+                              <label htmlFor="address" className="mb-1.5 block text-sm font-medium">
+                                Business or meeting address
+                              </label>
+                              <input
+                                id="address"
+                                autoComplete="street-address"
+                                value={address}
+                                onChange={(event) => setAddress(event.target.value)}
+                                className="w-full rounded-md border border-[#D9D9D2] px-3 py-2.5 text-sm outline-none focus:border-[#1F2A44]"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </section>
+                    )}
+
+                    {templateFeatures.hours && (
+                      <section aria-labelledby="hours-heading" className="space-y-3">
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <h2 id="hours-heading" className="text-sm font-semibold">
+                              Opening hours
+                            </h2>
+                            <p className="mt-1 text-xs text-[#667085]">
+                              Customize the schedule included with this template.
+                            </p>
                           </div>
-                        ))}
+                          <label className="inline-flex shrink-0 items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={showHours}
+                              onChange={(event) => setShowHours(event.target.checked)}
+                              className="accent-[#1F2A44]"
+                            />
+                            Include hours
+                          </label>
+                        </div>
+                        {showHours && (
+                          <div className="divide-y rounded-lg border border-[#E4E2DC]">
+                            {hours.map((hour, index) => (
+                              <div
+                                key={hour.day}
+                                className="grid items-center gap-2 px-3 py-2 sm:grid-cols-[1fr_auto_1fr_1fr]"
+                              >
+                                <span className="text-sm font-medium">{hour.day}</span>
+                                <label className="inline-flex items-center gap-2 text-xs text-[#667085]">
+                                  <input
+                                    type="checkbox"
+                                    checked={hour.closed}
+                                    onChange={(event) =>
+                                      setHours((current) =>
+                                        current.map((item, itemIndex) =>
+                                          itemIndex === index
+                                            ? { ...item, closed: event.target.checked }
+                                            : item,
+                                        ),
+                                      )
+                                    }
+                                    className="accent-[#1F2A44]"
+                                  />
+                                  Closed
+                                </label>
+                                <input
+                                  type="time"
+                                  aria-label={`${hour.day} opening time`}
+                                  value={hour.open}
+                                  disabled={hour.closed}
+                                  onChange={(event) =>
+                                    setHours((current) =>
+                                      current.map((item, itemIndex) =>
+                                        itemIndex === index
+                                          ? { ...item, open: event.target.value }
+                                          : item,
+                                      ),
+                                    )
+                                  }
+                                  className="w-full rounded-md border border-[#D9D9D2] px-2 py-1.5 text-xs disabled:opacity-40"
+                                />
+                                <input
+                                  type="time"
+                                  aria-label={`${hour.day} closing time`}
+                                  value={hour.close}
+                                  disabled={hour.closed}
+                                  onChange={(event) =>
+                                    setHours((current) =>
+                                      current.map((item, itemIndex) =>
+                                        itemIndex === index
+                                          ? { ...item, close: event.target.value }
+                                          : item,
+                                      ),
+                                    )
+                                  }
+                                  className="w-full rounded-md border border-[#D9D9D2] px-2 py-1.5 text-xs disabled:opacity-40"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </section>
+                    )}
+
+                    {templateFeatures.links && (
+                      <section className="grid gap-4 rounded-lg bg-[#F8F7F4] p-4 sm:grid-cols-2">
+                        <div className="sm:col-span-2">
+                          <h2 className="text-sm font-semibold">
+                            {String(
+                              selectedTemplate.blocks.find((block) => block.type === "links")
+                                ?.content?.["heading"] ?? "Featured link",
+                            )}
+                          </h2>
+                          <p className="mt-1 text-xs text-[#667085]">
+                            Leave both fields empty to skip this section.
+                          </p>
+                        </div>
+                        <div>
+                          <label htmlFor="link-title" className="mb-1.5 block text-sm font-medium">
+                            Link label
+                          </label>
+                          <input
+                            id="link-title"
+                            value={linkTitle}
+                            onChange={(event) => setLinkTitle(event.target.value)}
+                            className="w-full rounded-md border border-[#D9D9D2] px-3 py-2.5 text-sm outline-none"
+                            placeholder="e.g. View our menu"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="link-url" className="mb-1.5 block text-sm font-medium">
+                            Destination URL
+                          </label>
+                          <input
+                            id="link-url"
+                            type="url"
+                            value={linkUrl}
+                            onChange={(event) => setLinkUrl(event.target.value)}
+                            className="w-full rounded-md border border-[#D9D9D2] px-3 py-2.5 text-sm outline-none"
+                            placeholder="https://"
+                          />
+                        </div>
+                      </section>
+                    )}
+
+                    {templateFeatures.services && (
+                      <section className="grid gap-4 rounded-lg bg-[#F8F7F4] p-4 sm:grid-cols-2">
+                        <div className="sm:col-span-2">
+                          <h2 className="text-sm font-semibold">
+                            {String(
+                              selectedTemplate.blocks.find(
+                                (block) => block.type === "services" || block.type === "products",
+                              )?.content?.["heading"] ?? "Featured service",
+                            )}
+                          </h2>
+                          <p className="mt-1 text-xs text-[#667085]">
+                            Add one featured item now; you can add more from your editor later.
+                          </p>
+                        </div>
+                        <div>
+                          <label
+                            htmlFor="service-name"
+                            className="mb-1.5 block text-sm font-medium"
+                          >
+                            Name
+                          </label>
+                          <input
+                            id="service-name"
+                            value={serviceName}
+                            onChange={(event) => setServiceName(event.target.value)}
+                            className="w-full rounded-md border border-[#D9D9D2] px-3 py-2.5 text-sm outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label
+                            htmlFor="service-price"
+                            className="mb-1.5 block text-sm font-medium"
+                          >
+                            Price <span className="font-normal text-[#667085]">Optional</span>
+                          </label>
+                          <input
+                            id="service-price"
+                            value={servicePrice}
+                            onChange={(event) => setServicePrice(event.target.value)}
+                            className="w-full rounded-md border border-[#D9D9D2] px-3 py-2.5 text-sm outline-none"
+                            placeholder="e.g. From $50"
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label
+                            htmlFor="service-description"
+                            className="mb-1.5 block text-sm font-medium"
+                          >
+                            Details <span className="font-normal text-[#667085]">Optional</span>
+                          </label>
+                          <textarea
+                            id="service-description"
+                            maxLength={500}
+                            rows={2}
+                            value={serviceDescription}
+                            onChange={(event) => setServiceDescription(event.target.value)}
+                            className="w-full resize-y rounded-md border border-[#D9D9D2] px-3 py-2.5 text-sm outline-none"
+                          />
+                        </div>
+                      </section>
+                    )}
+
+                    {templateFeatures.gallery && (
+                      <section className="space-y-3 rounded-lg bg-[#F8F7F4] p-4">
+                        <div>
+                          <h2 className="text-sm font-semibold">
+                            {String(
+                              selectedTemplate.blocks.find((block) => block.type === "gallery")
+                                ?.content?.["heading"] ?? "Photo gallery",
+                            )}
+                          </h2>
+                          <p className="mt-1 text-xs text-[#667085]">
+                            Upload up to 10 photos. JPG, PNG, or WebP, maximum 5 MB each.
+                          </p>
+                        </div>
+                        <input
+                          id="gallery-photos"
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          multiple
+                          disabled={uploadingPhotos || imageUrls.length >= 10}
+                          onChange={(event) => {
+                            void uploadGalleryPhotos(Array.from(event.currentTarget.files ?? []));
+                            event.currentTarget.value = "";
+                          }}
+                          className="block max-w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-white file:px-3 file:py-2 file:text-sm file:font-medium"
+                        />
+                        {uploadingPhotos && (
+                          <p role="status" className="text-xs text-[#667085]">
+                            Uploading photo…
+                          </p>
+                        )}
+                        {imageUrls.length > 0 && (
+                          <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+                            {imageUrls.map((path, index) => (
+                              <div key={path} className="relative">
+                                <img
+                                  src={mediaUrl(path) ?? ""}
+                                  alt={`Gallery photo ${index + 1}`}
+                                  className="aspect-square w-full rounded-md border border-[#D9D9D2] object-cover"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setImageUrls((current) =>
+                                      current.filter((item) => item !== path),
+                                    )
+                                  }
+                                  aria-label={`Remove gallery photo ${index + 1}`}
+                                  className="absolute right-1 top-1 rounded-full bg-white px-2 py-1 text-xs shadow"
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </section>
+                    )}
+
+                    {templateFeatures.video && (
+                      <div>
+                        <label htmlFor="video-url" className="mb-1.5 block text-sm font-medium">
+                          Featured YouTube video{" "}
+                          <span className="font-normal text-[#667085]">Optional</span>
+                        </label>
+                        <input
+                          id="video-url"
+                          type="url"
+                          value={videoUrl}
+                          onChange={(event) => setVideoUrl(event.target.value)}
+                          className="w-full rounded-md border border-[#D9D9D2] px-3 py-2.5 text-sm outline-none"
+                          placeholder="https://youtube.com/watch?v=..."
+                        />
                       </div>
                     )}
-                  </section>
-                )}
 
-                {templateFeatures.links && (
-                  <section className="grid gap-4 rounded-lg bg-[#F8F7F4] p-4 sm:grid-cols-2">
-                    <div className="sm:col-span-2">
-                      <h2 className="text-sm font-semibold">
-                        {String(
-                          selectedTemplate.blocks.find((block) => block.type === "links")
-                            ?.content?.["heading"] ?? "Featured link",
-                        )}
-                      </h2>
-                      <p className="mt-1 text-xs text-[#667085]">
-                        Leave both fields empty to skip this section.
-                      </p>
-                    </div>
-                    <div>
-                      <label htmlFor="link-title" className="mb-1.5 block text-sm font-medium">
-                        Link label
-                      </label>
-                      <input
-                        id="link-title"
-                        value={linkTitle}
-                        onChange={(event) => setLinkTitle(event.target.value)}
-                        className="w-full rounded-md border border-[#D9D9D2] px-3 py-2.5 text-sm outline-none"
-                        placeholder="e.g. View our menu"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="link-url" className="mb-1.5 block text-sm font-medium">
-                        Destination URL
-                      </label>
-                      <input
-                        id="link-url"
-                        type="url"
-                        value={linkUrl}
-                        onChange={(event) => setLinkUrl(event.target.value)}
-                        className="w-full rounded-md border border-[#D9D9D2] px-3 py-2.5 text-sm outline-none"
-                        placeholder="https://"
-                      />
-                    </div>
-                  </section>
-                )}
+                    {templateFeatures.social && (
+                      <section className="grid gap-4 sm:grid-cols-2">
+                        <div>
+                          <label
+                            htmlFor="social-platform"
+                            className="mb-1.5 block text-sm font-medium"
+                          >
+                            Social platform
+                          </label>
+                          <select
+                            id="social-platform"
+                            value={socialPlatform}
+                            onChange={(event) => setSocialPlatform(event.target.value)}
+                            className="w-full rounded-md border border-[#D9D9D2] bg-white px-3 py-2.5 text-sm outline-none"
+                          >
+                            {SOCIAL_PLATFORMS.map((platform) => (
+                              <option key={platform.value} value={platform.value}>
+                                {platform.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label htmlFor="social-url" className="mb-1.5 block text-sm font-medium">
+                            Social profile URL{" "}
+                            <span className="font-normal text-[#667085]">Optional</span>
+                          </label>
+                          <input
+                            id="social-url"
+                            type="url"
+                            value={socialUrl}
+                            onChange={(event) => setSocialUrl(event.target.value)}
+                            className="w-full rounded-md border border-[#D9D9D2] px-3 py-2.5 text-sm outline-none"
+                            placeholder={
+                              SOCIAL_PLATFORMS.find((platform) => platform.value === socialPlatform)
+                                ?.hint
+                            }
+                          />
+                        </div>
+                      </section>
+                    )}
 
-                {templateFeatures.services && (
-                  <section className="grid gap-4 rounded-lg bg-[#F8F7F4] p-4 sm:grid-cols-2">
-                    <div className="sm:col-span-2">
-                      <h2 className="text-sm font-semibold">
-                        {String(
-                          selectedTemplate.blocks.find(
-                            (block) => block.type === "services" || block.type === "products",
-                          )?.content?.["heading"] ?? "Featured service",
-                        )}
-                      </h2>
-                      <p className="mt-1 text-xs text-[#667085]">
-                        Add one featured item now; you can add more from your editor later.
-                      </p>
-                    </div>
-                    <div>
-                      <label htmlFor="service-name" className="mb-1.5 block text-sm font-medium">
-                        Name
-                      </label>
-                      <input
-                        id="service-name"
-                        value={serviceName}
-                        onChange={(event) => setServiceName(event.target.value)}
-                        className="w-full rounded-md border border-[#D9D9D2] px-3 py-2.5 text-sm outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="service-price" className="mb-1.5 block text-sm font-medium">
-                        Price <span className="font-normal text-[#667085]">Optional</span>
-                      </label>
-                      <input
-                        id="service-price"
-                        value={servicePrice}
-                        onChange={(event) => setServicePrice(event.target.value)}
-                        className="w-full rounded-md border border-[#D9D9D2] px-3 py-2.5 text-sm outline-none"
-                        placeholder="e.g. From $50"
-                      />
-                    </div>
-                    <div className="sm:col-span-2">
-                      <label
-                        htmlFor="service-description"
-                        className="mb-1.5 block text-sm font-medium"
-                      >
-                        Details <span className="font-normal text-[#667085]">Optional</span>
-                      </label>
-                      <textarea
-                        id="service-description"
-                        maxLength={500}
-                        rows={2}
-                        value={serviceDescription}
-                        onChange={(event) => setServiceDescription(event.target.value)}
-                        className="w-full resize-y rounded-md border border-[#D9D9D2] px-3 py-2.5 text-sm outline-none"
-                      />
-                    </div>
-                  </section>
-                )}
-
-                {templateFeatures.gallery && (
-                  <section className="space-y-3 rounded-lg bg-[#F8F7F4] p-4">
-                    <div>
-                      <h2 className="text-sm font-semibold">
-                        {String(
-                          selectedTemplate.blocks.find((block) => block.type === "gallery")
-                            ?.content?.["heading"] ?? "Photo gallery",
-                        )}
-                      </h2>
-                      <p className="mt-1 text-xs text-[#667085]">
-                        Upload up to 10 photos. JPG, PNG, or WebP, maximum 5 MB each.
-                      </p>
-                    </div>
-                    <input
-                      id="gallery-photos"
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp"
-                      multiple
-                      disabled={uploadingPhotos || imageUrls.length >= 10}
-                      onChange={(event) => {
-                        void uploadGalleryPhotos(Array.from(event.currentTarget.files ?? []));
-                        event.currentTarget.value = "";
-                      }}
-                      className="block max-w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-white file:px-3 file:py-2 file:text-sm file:font-medium"
-                    />
-                    {uploadingPhotos && (
-                      <p role="status" className="text-xs text-[#667085]">
-                        Uploading photo…
+                    {error && (
+                      <p role="alert" className="text-sm text-[#A33A32]">
+                        {error}
                       </p>
                     )}
-                    {imageUrls.length > 0 && (
-                      <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-                        {imageUrls.map((path, index) => (
-                          <div key={path} className="relative">
-                            <img
-                              src={mediaUrl(path) ?? ""}
-                              alt={`Gallery photo ${index + 1}`}
-                              className="aspect-square w-full rounded-md border border-[#D9D9D2] object-cover"
-                            />
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setImageUrls((current) => current.filter((item) => item !== path))
-                              }
-                              aria-label={`Remove gallery photo ${index + 1}`}
-                              className="absolute right-1 top-1 rounded-full bg-white px-2 py-1 text-xs shadow"
-                            >
-                              ×
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </section>
-                )}
 
-                {templateFeatures.video && (
-                  <div>
-                    <label htmlFor="video-url" className="mb-1.5 block text-sm font-medium">
-                      Featured YouTube video{" "}
-                      <span className="font-normal text-[#667085]">Optional</span>
-                    </label>
-                    <input
-                      id="video-url"
-                      type="url"
-                      value={videoUrl}
-                      onChange={(event) => setVideoUrl(event.target.value)}
-                      className="w-full rounded-md border border-[#D9D9D2] px-3 py-2.5 text-sm outline-none"
-                      placeholder="https://youtube.com/watch?v=..."
-                    />
-                  </div>
-                )}
-
-                {templateFeatures.social && (
-                  <section className="grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <label htmlFor="social-platform" className="mb-1.5 block text-sm font-medium">
-                        Social platform
-                      </label>
-                      <select
-                        id="social-platform"
-                        value={socialPlatform}
-                        onChange={(event) => setSocialPlatform(event.target.value)}
-                        className="w-full rounded-md border border-[#D9D9D2] bg-white px-3 py-2.5 text-sm outline-none"
-                      >
-                        {SOCIAL_PLATFORMS.map((platform) => (
-                          <option key={platform.value} value={platform.value}>
-                            {platform.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label htmlFor="social-url" className="mb-1.5 block text-sm font-medium">
-                        Social profile URL{" "}
-                        <span className="font-normal text-[#667085]">Optional</span>
-                      </label>
-                      <input
-                        id="social-url"
-                        type="url"
-                        value={socialUrl}
-                        onChange={(event) => setSocialUrl(event.target.value)}
-                        className="w-full rounded-md border border-[#D9D9D2] px-3 py-2.5 text-sm outline-none"
-                        placeholder={
-                          SOCIAL_PLATFORMS.find((platform) => platform.value === socialPlatform)
-                            ?.hint
-                        }
-                      />
-                    </div>
-                  </section>
-                )}
-
-                {error && (
-                  <p role="alert" className="text-sm text-[#A33A32]">
-                    {error}
+                    <button
+                      type="submit"
+                      disabled={busy || uploadingPhotos}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-[#1F2A44] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#253455] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {busy ? (
+                        <>
+                          <LoaderCircle className="h-4 w-4 animate-spin" />
+                          Creating your link…
+                        </>
+                      ) : (
+                        <>
+                          Create my link <ArrowRight className="h-4 w-4" />
+                        </>
+                      )}
+                    </button>
+                  </>
+                ) : !hasSelectedTemplate ? (
+                  <p role="status" className="rounded-md bg-[#F8F7F4] p-3 text-sm text-[#667085]">
+                    Select a template to continue.
                   </p>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={busy || uploadingPhotos}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-[#1F2A44] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#253455] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {busy ? (
-                    <>
-                      <LoaderCircle className="h-4 w-4 animate-spin" />
-                      Creating your link…
-                    </>
-                  ) : (
-                    <>
-                      Create my link <ArrowRight className="h-4 w-4" />
-                    </>
-                  )}
-                </button>
+                ) : null}
               </form>
             </div>
-            <aside className="sticky top-6 hidden xl:block">
-              <h2 className="mb-3 text-sm font-semibold">Live preview · {selectedTemplate.name}</h2>
-              <div className="h-[640px] overflow-hidden rounded-xl border border-[#D9D9D2] bg-[#F5F4F0] shadow-sm">
-                <div
-                  className="relative left-1/2 w-[520px] origin-top"
-                  style={{ transform: "translateX(-50%) scale(0.62)" }}
-                >
-                  <TemplatePreview
-                    template={selectedTemplate}
-                    values={previewValues}
-                    contactFields={contactFields}
-                  />
+            {showDetailsPage && (
+              <aside className="sticky top-6 hidden xl:block">
+                <h2 className="mb-3 text-sm font-semibold">
+                  Live preview · {selectedTemplate.name}
+                </h2>
+                <div className="h-[640px] overflow-hidden rounded-xl border border-[#D9D9D2] bg-[#F5F4F0] shadow-sm">
+                  <div
+                    className="relative left-1/2 w-[520px] origin-top"
+                    style={{ transform: "translateX(-50%) scale(0.62)" }}
+                  >
+                    <TemplatePreview
+                      template={selectedTemplate}
+                      values={previewValues}
+                      contactFields={contactFields}
+                    />
+                  </div>
                 </div>
-              </div>
-              <p className="mt-2 text-xs text-[#667085]">
-                Preview updates as you enter your profile details.
-              </p>
-            </aside>
+                <p className="mt-2 text-xs text-[#667085]">
+                  Preview updates as you enter your profile details.
+                </p>
+              </aside>
+            )}
+            <Dialog
+              open={templateToPreview !== null}
+              onOpenChange={(open) => {
+                if (!open) setTemplateToPreview(null);
+              }}
+            >
+              {templateToPreview && (
+                <DialogContent className="flex max-h-[90dvh] flex-col gap-3 overflow-hidden p-4 sm:p-6 max-sm:!left-0 max-sm:!top-0 max-sm:!h-dvh max-sm:!w-full max-sm:!max-w-none max-sm:!translate-x-0 max-sm:!translate-y-0 max-sm:!max-h-none max-sm:!rounded-none max-sm:!border-0 max-sm:!p-0 max-sm:!gap-0">
+                  <DialogHeader className="shrink-0 border-b border-[#E4E2DC] px-4 py-4 pr-12 text-left sm:border-0 sm:px-0 sm:py-0 sm:pr-8">
+                    <DialogTitle>{templateToPreview.name} preview</DialogTitle>
+                    <DialogDescription>{templateToPreview.audience}</DialogDescription>
+                  </DialogHeader>
+                  <div className="min-h-0 flex-1 overflow-y-auto bg-[#F5F4F0] sm:rounded-lg sm:border sm:border-[#D9D9D2]">
+                    <TemplatePreview
+                      template={templateToPreview}
+                      values={previewValues}
+                      contactFields={getContactFieldDefaults(templateToPreview)}
+                    />
+                  </div>
+                  <DialogFooter className="shrink-0 flex-row justify-end gap-2 border-t border-[#E4E2DC] bg-white px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:border-0 sm:bg-transparent sm:p-0">
+                    <button
+                      type="button"
+                      onClick={() => setTemplateToPreview(null)}
+                      className="rounded-md border border-[#D9D9D2] px-4 py-2 text-sm font-medium"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        selectTemplate(templateToPreview);
+                        setTemplateToPreview(null);
+                      }}
+                      className="rounded-md bg-[#1F2A44] px-4 py-2 text-sm font-semibold text-white"
+                    >
+                      Use this template
+                    </button>
+                  </DialogFooter>
+                </DialogContent>
+              )}
+            </Dialog>
           </div>
         )}
       </section>
